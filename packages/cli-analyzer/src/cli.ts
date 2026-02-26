@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { resolve } from "node:path";
+import { resolve, relative } from "node:path";
 import { findAllSessions, parseSession, analyzeSession } from "@vibecoding/core";
 import type { StaticAnalysisReport } from "@vibecoding/core";
 
@@ -85,6 +85,7 @@ async function runAnalysis(projectPath: string): Promise<void> {
 
 function printReport(report: StaticAnalysisReport): void {
   const divider = "─".repeat(60);
+  const rel = (p: string) => relative(report.projectPath, p) || p;
 
   console.log(divider);
   console.log(`Session: ${report.sessionId}`);
@@ -102,7 +103,7 @@ function printReport(report: StaticAnalysisReport): void {
     console.log(`\n📁 Most Changed Files`);
     for (const { filePath, changeCount } of report.changeFrequency.slice(0, 10)) {
       const bar = "█".repeat(Math.min(changeCount, 30));
-      console.log(`  ${bar} ${changeCount}x  ${filePath}`);
+      console.log(`  ${bar} ${changeCount}x  ${rel(filePath)}`);
     }
   }
 
@@ -111,7 +112,7 @@ function printReport(report: StaticAnalysisReport): void {
     for (const change of report.fileChanges.slice(0, 15)) {
       const prompt = change.promptText.slice(0, 80).replace(/\n/g, " ");
       const icon = change.changeType === "create" ? "+" : "~";
-      console.log(`  [${icon}] ${change.filePath}`);
+      console.log(`  [${icon}] ${rel(change.filePath)}`);
       console.log(`      ← "${prompt}${change.promptText.length > 80 ? "..." : ""}"`);
     }
     if (report.fileChanges.length > 15) {

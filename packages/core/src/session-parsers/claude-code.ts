@@ -180,10 +180,19 @@ function extractToolCalls(entry: Record<string, unknown>): ToolCall[] {
 function extractTokenUsage(
   entry: Record<string, unknown>,
 ): TokenUsage | null {
-  const usage = entry.usage as Record<string, unknown> | undefined;
+  // Usage can be at entry.usage or entry.message.usage
+  const usage =
+    (entry.usage as Record<string, unknown> | undefined) ??
+    ((entry.message as Record<string, unknown> | undefined)?.usage as
+      | Record<string, unknown>
+      | undefined);
   if (!usage) return null;
 
-  const inputTokens = (usage.input_tokens as number) ?? 0;
+  // Claude Code includes cache tokens separately
+  const inputTokens =
+    ((usage.input_tokens as number) ?? 0) +
+    ((usage.cache_creation_input_tokens as number) ?? 0) +
+    ((usage.cache_read_input_tokens as number) ?? 0);
   const outputTokens = (usage.output_tokens as number) ?? 0;
   if (inputTokens === 0 && outputTokens === 0) return null;
 

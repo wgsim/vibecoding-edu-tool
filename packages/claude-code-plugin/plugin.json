@@ -1,0 +1,22 @@
+{
+  "name": "vibecoding-edu",
+  "version": "0.1.0",
+  "description": "VibeCoding Edu - Understand AI-generated code through X-Ray analysis, prompt evaluation, and debugging practice",
+  "skills": [
+    {
+      "name": "xray",
+      "description": "Explain AI-generated code line-by-line from a traditional programming perspective. Use when the user wants to understand what code does and why it's structured that way.",
+      "path": "skills/xray.md"
+    },
+    {
+      "name": "dojo",
+      "description": "Generate a debugging challenge by injecting bugs into recent code. Use when the user wants to practice finding and fixing bugs via prompts.",
+      "path": "skills/dojo.md"
+    },
+    {
+      "name": "analyze",
+      "description": "Run static analysis on AI coding session history for the current project. Shows prompt-to-file mappings, change frequency, and token usage.",
+      "path": "skills/analyze.md"
+    }
+  ]
+}

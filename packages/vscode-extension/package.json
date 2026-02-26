@@ -1,0 +1,40 @@
+{
+  "name": "vibecoding-edu",
+  "displayName": "VibeCoding Edu",
+  "description": "Understand AI-generated code — X-Ray viewer, prompt evaluator, and debugging dojo",
+  "version": "0.1.0",
+  "license": "AGPL-3.0-only",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": ["Education", "Programming Languages"],
+  "activationEvents": [
+    "onCommand:vibecoding.xray",
+    "onCommand:vibecoding.dojo",
+    "onCommand:vibecoding.analyze"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "vibecoding.xray",
+        "title": "VibeCoding: X-Ray — Explain This Code"
+      },
+      {
+        "command": "vibecoding.dojo",
+        "title": "VibeCoding: Debugging Dojo — Generate Challenge"
+      },
+      {
+        "command": "vibecoding.analyze",
+        "title": "VibeCoding: Analyze AI Session History"
+      }
+    ]
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.85.0"
+  }
+}
