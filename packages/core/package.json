@@ -1,0 +1,17 @@
+{
+  "name": "@vibecoding/core",
+  "version": "0.1.0",
+  "description": "Shared core logic for VibeCoding Edu Tool",
+  "license": "AGPL-3.0-only",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": "./dist/index.js",
+    "./session-parsers": "./dist/session-parsers/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch"
+  }
+}
