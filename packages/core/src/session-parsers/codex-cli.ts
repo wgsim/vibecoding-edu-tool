@@ -4,6 +4,7 @@ import { homedir } from "node:os";
 import type {
   ParsedSession,
   SessionTurn,
+  ToolCall,
   TokenUsage,
 } from "../types.js";
 
@@ -12,7 +13,7 @@ const CODEX_SESSIONS_DIR = join(homedir(), ".codex", "sessions");
 /**
  * Find all Codex CLI session files that match a given project path.
  * Codex stores sessions by date: ~/.codex/sessions/YYYY/MM/DD/rollout-*.jsonl
- * We need to read each file and check the working_directory field.
+ * The working directory is in the first line's session_meta.payload.cwd
  */
 export async function findSessionFiles(
   projectPath: string,
@@ -21,8 +22,8 @@ export async function findSessionFiles(
   const matched: string[] = [];
 
   for (const filePath of allFiles) {
-    const workDir = await extractWorkingDirectory(filePath);
-    if (workDir && normalizePath(workDir) === normalizePath(projectPath)) {
+    const cwd = await extractCwd(filePath);
+    if (cwd && normalizePath(cwd) === normalizePath(projectPath)) {
       matched.push(filePath);
     }
   }
@@ -32,6 +33,11 @@ export async function findSessionFiles(
 
 /**
  * Parse a single Codex CLI JSONL session file into a ParsedSession.
+ *
+ * Codex JSONL format:
+ *   - type: "session_meta"   → payload.cwd, payload.id
+ *   - type: "response_item"  → payload.role ("user"|"assistant"|"developer"|"function_call"|"function_call_output")
+ *   - type: "event_msg"      → metadata (token counts, rate limits, etc.)
  */
 export async function parseSessionFile(
   sessionFilePath: string,
@@ -42,6 +48,7 @@ export async function parseSessionFile(
 
   const turns: SessionTurn[] = [];
   let startTime = "";
+  let sessionId = "";
 
   for (const line of lines) {
     let entry: Record<string, unknown>;
@@ -51,19 +58,30 @@ export async function parseSessionFile(
       continue;
     }
 
-    const turn = extractTurn(entry);
-    if (turn) {
-      if (!startTime && turn.timestamp) {
-        startTime = turn.timestamp;
-      }
-      turns.push(turn);
+    const type = entry.type as string | undefined;
+    const timestamp = (entry.timestamp as string) ?? "";
+    const payload = (entry.payload as Record<string, unknown>) ?? {};
+
+    if (!startTime && timestamp) {
+      startTime = timestamp;
+    }
+
+    // Session metadata
+    if (type === "session_meta") {
+      sessionId = (payload.id as string) ?? "";
+      continue;
+    }
+
+    // Response items contain actual conversation data
+    if (type === "response_item") {
+      const turn = extractTurnFromResponseItem(payload, timestamp);
+      if (turn) turns.push(turn);
     }
   }
 
-  const sessionId = sessionFilePath
-    .split(sep)
-    .pop()!
-    .replace(".jsonl", "");
+  if (!sessionId) {
+    sessionId = sessionFilePath.split(sep).pop()!.replace(".jsonl", "");
+  }
 
   return {
     tool: "codex-cli",
@@ -75,77 +93,96 @@ export async function parseSessionFile(
   };
 }
 
-function extractTurn(entry: Record<string, unknown>): SessionTurn | null {
-  const type = entry.type as string | undefined;
-  const role = entry.role as string | undefined;
-  const timestamp = (entry.timestamp as string) ?? "";
+function extractTurnFromResponseItem(
+  payload: Record<string, unknown>,
+  timestamp: string,
+): SessionTurn | null {
+  const role = payload.role as string | undefined;
+  const itemType = payload.type as string | undefined;
 
-  if (type === "message" || role === "user" || role === "assistant") {
-    const content = extractContent(entry);
-    const tokenUsage = extractTokenUsage(entry);
+  // User message
+  if (role === "user") {
+    const content = extractContent(payload);
+    if (!content) return null;
+    // Filter out system context injections
+    if (
+      content.startsWith("<environment_context>") ||
+      content.startsWith("# AGENTS.md")
+    ) {
+      return null;
+    }
+    return { timestamp, role: "user", content };
+  }
 
+  // Assistant message
+  if (role === "assistant") {
+    const content = extractContent(payload);
     return {
       timestamp,
-      role: role === "assistant" ? "assistant" : "user",
+      role: "assistant",
       content: content ?? "",
-      ...(tokenUsage && { tokenUsage }),
+    };
+  }
+
+  // Function call (tool use by assistant)
+  if (itemType === "function_call") {
+    const name = (payload.name as string) ?? "unknown";
+    let args: Record<string, unknown> = {};
+    try {
+      const rawArgs = payload.arguments as string | undefined;
+      if (rawArgs) args = JSON.parse(rawArgs);
+    } catch {
+      // arguments might not be valid JSON
+    }
+
+    const toolCall: ToolCall = { name, input: args };
+    return {
+      timestamp,
+      role: "assistant",
+      content: "",
+      toolCalls: [toolCall],
     };
   }
 
   return null;
 }
 
-function extractContent(entry: Record<string, unknown>): string | null {
-  if (typeof entry.content === "string") return entry.content;
-  if (typeof entry.message === "string") return entry.message;
+function extractContent(payload: Record<string, unknown>): string | null {
+  const content = payload.content;
 
-  const msg = entry.message as Record<string, unknown> | undefined;
-  if (typeof msg?.content === "string") return msg.content;
+  if (typeof content === "string") return content;
+
+  if (Array.isArray(content)) {
+    const texts = (content as Array<Record<string, unknown>>)
+      .filter(
+        (block) =>
+          block.type === "input_text" ||
+          block.type === "output_text" ||
+          block.type === "text",
+      )
+      .map((block) => block.text as string)
+      .filter(Boolean);
+    return texts.length > 0 ? texts.join("\n") : null;
+  }
 
   return null;
 }
 
-function extractTokenUsage(
-  entry: Record<string, unknown>,
-): TokenUsage | null {
-  const usage = entry.usage as Record<string, unknown> | undefined;
-  if (!usage) return null;
-
-  const inputTokens =
-    (usage.input_tokens as number) ?? (usage.prompt_tokens as number) ?? 0;
-  const outputTokens =
-    (usage.output_tokens as number) ??
-    (usage.completion_tokens as number) ??
-    0;
-  if (inputTokens === 0 && outputTokens === 0) return null;
-
-  return { inputTokens, outputTokens };
-}
-
-/** Extract working_directory from the first few lines of a session file */
-async function extractWorkingDirectory(
-  filePath: string,
-): Promise<string | null> {
+/** Extract cwd from session_meta (first line) */
+async function extractCwd(filePath: string): Promise<string | null> {
   try {
     const content = await readFile(filePath, "utf-8");
-    // Only scan first 10 lines for efficiency
-    const lines = content.split("\n").slice(0, 10);
+    const firstNewline = content.indexOf("\n");
+    const firstLine = firstNewline > 0 ? content.slice(0, firstNewline) : content;
 
-    for (const line of lines) {
-      if (!line.trim()) continue;
-      try {
-        const entry = JSON.parse(line);
-        const workDir =
-          (entry.working_directory as string) ??
-          (entry.cwd as string) ??
-          null;
-        if (workDir) return workDir;
-      } catch {
-        continue;
-      }
+    if (!firstLine.trim()) return null;
+    const entry = JSON.parse(firstLine);
+
+    if (entry.type === "session_meta") {
+      return (entry.payload?.cwd as string) ?? null;
     }
   } catch {
-    // File not readable
+    // File not readable or malformed
   }
   return null;
 }

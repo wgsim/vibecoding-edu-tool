@@ -57,31 +57,79 @@ function toolCallToFileChange(
   promptText: string,
   turnIndex: number,
 ): FileChange | null {
+  // Claude Code tools: Write, Edit with file_path
   const filePath =
     (toolCall.input.file_path as string) ??
     (toolCall.input.path as string) ??
     null;
 
-  if (!filePath) return null;
-
-  let changeType: FileChange["changeType"];
-
-  switch (toolCall.name) {
-    case "Write":
-    case "write":
-      changeType = "create";
-      break;
-    case "Edit":
-    case "edit":
-      changeType = "edit";
-      break;
-    default:
-      // Bash commands that create/modify files are harder to detect
-      // For now, skip non-explicit tool calls
-      return null;
+  if (filePath) {
+    let changeType: FileChange["changeType"];
+    switch (toolCall.name) {
+      case "Write":
+      case "write":
+        changeType = "create";
+        break;
+      case "Edit":
+      case "edit":
+        changeType = "edit";
+        break;
+      default:
+        return null;
+    }
+    return { filePath, changeType, promptText, turnIndex };
   }
 
-  return { filePath, changeType, promptText, turnIndex };
+  // Codex CLI tools: exec_command with cmd string
+  if (toolCall.name === "exec_command") {
+    const cmd = (toolCall.input.cmd as string) ?? "";
+    return parseExecCommandForFileChange(cmd, promptText, turnIndex);
+  }
+
+  return null;
+}
+
+/**
+ * Attempt to extract file changes from Codex CLI exec_command strings.
+ * This is best-effort — only catches common write patterns.
+ */
+function parseExecCommandForFileChange(
+  cmd: string,
+  promptText: string,
+  turnIndex: number,
+): FileChange | null {
+  // Patterns: cat > file, echo > file, tee file, cp ... dest
+  const writePatterns = [
+    /(?:cat|tee)\s+>\s*["']?([^\s"']+)/,
+    /echo\s+.*>\s*["']?([^\s"']+)/,
+    /(?:mv|cp)\s+\S+\s+["']?([^\s"']+)/,
+    /mkdir\s+-p\s+["']?([^\s"']+)/,
+  ];
+
+  for (const pattern of writePatterns) {
+    const match = cmd.match(pattern);
+    if (match?.[1]) {
+      return {
+        filePath: match[1],
+        changeType: "create",
+        promptText,
+        turnIndex,
+      };
+    }
+  }
+
+  // sed -i modifies files in-place
+  const sedMatch = cmd.match(/sed\s+-i[^\s]*\s+.*\s+["']?([^\s"']+)/);
+  if (sedMatch?.[1]) {
+    return {
+      filePath: sedMatch[1],
+      changeType: "edit",
+      promptText,
+      turnIndex,
+    };
+  }
+
+  return null;
 }
 
 function findPrecedingPrompt(
