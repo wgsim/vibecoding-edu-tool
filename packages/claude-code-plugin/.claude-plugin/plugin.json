@@ -1,0 +1,17 @@
+{
+  "name": "vibecoding-edu",
+  "version": "0.1.0",
+  "description": "VibeCoding Edu — X-Ray code analysis, Debugging Dojo, and AI session history review",
+  "author": {
+    "name": "wgsim"
+  },
+  "repository": "https://github.com/wgsim/vibecoding-edu-tool",
+  "license": "AGPL-3.0-only",
+  "keywords": [
+    "education",
+    "debugging",
+    "code-literacy",
+    "vibe-coding",
+    "session-analysis"
+  ]
+}
