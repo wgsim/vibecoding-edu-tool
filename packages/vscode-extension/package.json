@@ -4,10 +4,17 @@
   "description": "Understand AI-generated code — X-Ray viewer, prompt evaluator, and debugging dojo",
   "version": "0.1.0",
   "license": "AGPL-3.0-only",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/wgsim/vibecoding-edu-tool"
+  },
   "engines": {
     "vscode": "^1.85.0"
   },
-  "categories": ["Education", "Programming Languages"],
+  "categories": [
+    "Education",
+    "Programming Languages"
+  ],
   "activationEvents": [
     "onCommand:vibecoding.xray",
     "onCommand:vibecoding.dojo",
@@ -35,6 +42,7 @@
     "dev": "tsc --watch"
   },
   "devDependencies": {
-    "@types/vscode": "^1.85.0"
+    "@types/vscode": "^1.85.0",
+    "@vscode/vsce": "^3.7.1"
   }
 }
