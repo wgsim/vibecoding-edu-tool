@@ -5,7 +5,10 @@ import { promisify } from "node:util";
 
 const execFileAsync = promisify(execFile);
 
+let extensionPath: string;
+
 export function activate(context: vscode.ExtensionContext): void {
+  extensionPath = context.extensionPath;
   context.subscriptions.push(
     vscode.commands.registerCommand("vibecoding.xray", xrayCommand),
     vscode.commands.registerCommand("vibecoding.dojo", dojoCommand),
@@ -142,7 +145,7 @@ async function analyzeCommand(): Promise<void> {
 
   try {
     // Try to find the CLI analyzer relative to the extension
-    const cliPath = join(__dirname, "..", "..", "cli-analyzer", "dist", "cli.js");
+    const cliPath = join(extensionPath, "cli", "dist", "cli.js");
     const { stdout, stderr } = await execFileAsync("node", [cliPath, "analyze", projectPath]);
 
     if (stdout) channel.appendLine(stdout);

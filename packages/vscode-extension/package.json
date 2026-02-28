@@ -38,11 +38,12 @@
     ]
   },
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && node esbuild.cli.mjs",
     "dev": "tsc --watch"
   },
   "devDependencies": {
     "@types/vscode": "^1.85.0",
-    "@vscode/vsce": "^3.7.1"
+    "@vscode/vsce": "^3.7.1",
+    "esbuild": "^0.27.3"
   }
 }
