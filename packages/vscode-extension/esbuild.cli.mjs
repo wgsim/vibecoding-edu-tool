@@ -12,7 +12,6 @@ await build({
   target: "node18",
   format: "cjs",
   outfile: resolve(__dirname, "cli/dist/cli.js"),
-  banner: { js: "#!/usr/bin/env node" },
   external: [],
 });
 
