@@ -85,7 +85,10 @@ async function runAnalysis(projectPath: string): Promise<void> {
 
 function printReport(report: StaticAnalysisReport): void {
   const divider = "─".repeat(60);
-  const rel = (p: string) => relative(report.projectPath, p) || p;
+  const rel = (p: string) => {
+    const r = relative(report.projectPath, p);
+    return r.startsWith("../../") ? p : r || p;
+  };
 
   console.log(divider);
   console.log(`Session: ${report.sessionId}`);
@@ -97,7 +100,10 @@ function printReport(report: StaticAnalysisReport): void {
   console.log(`  Total turns:    ${report.totalTurns}`);
   console.log(`  User prompts:   ${report.promptCount}`);
   console.log(`  File changes:   ${report.fileChanges.length}`);
-  console.log(`  Tokens used:    ${report.totalTokens.inputTokens.toLocaleString()} in / ${report.totalTokens.outputTokens.toLocaleString()} out`);
+  const tokenStr = report.tool === "codex-cli"
+    ? "N/A (not recorded by Codex CLI)"
+    : `${report.totalTokens.inputTokens.toLocaleString()} in / ${report.totalTokens.outputTokens.toLocaleString()} out`;
+  console.log(`  Tokens used:    ${tokenStr}`);
 
   if (report.changeFrequency.length > 0) {
     console.log(`\n📁 Most Changed Files`);
