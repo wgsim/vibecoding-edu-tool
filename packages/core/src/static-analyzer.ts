@@ -93,40 +93,47 @@ function toolCallToFileChange(
  * Attempt to extract file changes from Codex CLI exec_command strings.
  * This is best-effort — only catches common write patterns.
  */
+/** Strip shell metacharacters and expand $HOME. Returns null if result is not a plausible path. */
+function sanitizeFilePath(raw: string): string | null {
+  // Remove trailing shell metacharacters: ; ) & | > < spaces
+  let p = raw.replace(/[;)&|><\s]+$/, "");
+  // Reject if still contains unresolved shell tokens: $VAR, &1, backticks
+  if (/\$\w+|&\d|`/.test(p)) return null;
+  // Expand literal $HOME / ${HOME}
+  const home = process.env.HOME ?? "";
+  p = p.replace(/\$\{?HOME\}?/, home);
+  // Must look like a file path (starts with / ~ . or a word char)
+  if (!/^[/~.\w]/.test(p)) return null;
+  return p;
+}
+
 function parseExecCommandForFileChange(
   cmd: string,
   promptText: string,
   turnIndex: number,
 ): FileChange | null {
-  // Patterns: cat > file, echo > file, tee file, cp ... dest
+  // Path token: no shell metacharacters
+  const pathToken = `["']?([^\\s"';)&|><]+)`;
   const writePatterns = [
-    /(?:cat|tee)\s+>\s*["']?([^\s"']+)/,
-    /echo\s+.*>\s*["']?([^\s"']+)/,
-    /(?:mv|cp)\s+\S+\s+["']?([^\s"']+)/,
-    /mkdir\s+-p\s+["']?([^\s"']+)/,
+    new RegExp(`(?:cat|tee)\\s+>\\s*${pathToken}`),
+    new RegExp(`echo\\s+.*>\\s*${pathToken}`),
+    new RegExp(`(?:mv|cp)\\s+\\S+\\s+${pathToken}`),
+    new RegExp(`mkdir\\s+-p\\s+${pathToken}`),
   ];
 
   for (const pattern of writePatterns) {
     const match = cmd.match(pattern);
-    if (match?.[1]) {
-      return {
-        filePath: match[1],
-        changeType: "create",
-        promptText,
-        turnIndex,
-      };
+    const filePath = match?.[1] ? sanitizeFilePath(match[1]) : null;
+    if (filePath) {
+      return { filePath, changeType: "create", promptText, turnIndex };
     }
   }
 
   // sed -i modifies files in-place
-  const sedMatch = cmd.match(/sed\s+-i[^\s]*\s+.*\s+["']?([^\s"']+)/);
-  if (sedMatch?.[1]) {
-    return {
-      filePath: sedMatch[1],
-      changeType: "edit",
-      promptText,
-      turnIndex,
-    };
+  const sedMatch = cmd.match(new RegExp(`sed\\s+-i[^\\s]*\\s+.*\\s+${pathToken}`));
+  const sedPath = sedMatch?.[1] ? sanitizeFilePath(sedMatch[1]) : null;
+  if (sedPath) {
+    return { filePath: sedPath, changeType: "edit", promptText, turnIndex };
   }
 
   return null;
