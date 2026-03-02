@@ -74,13 +74,76 @@ async function runAnalysis(projectPath: string): Promise<void> {
     return;
   }
 
-  console.log(`Found ${sessions.length} session(s). Analyzing...\n`);
+  const reports = await Promise.all(
+    sessions.map(async ({ tool, filePath }) => {
+      const parsed = await parseSession(tool, filePath, projectPath);
+      return analyzeSession(parsed);
+    }),
+  );
 
-  for (const { tool, filePath } of sessions) {
-    const parsed = await parseSession(tool, filePath, projectPath);
-    const report = analyzeSession(parsed);
+  const active = reports.filter((r) => r.totalTurns > 0);
+  const skipped = reports.length - active.length;
+
+  console.log(
+    `Found ${sessions.length} session(s). Analyzing... ` +
+    `(${active.length} active, ${skipped} empty skipped)\n`,
+  );
+
+  printProjectSummary(active, projectPath);
+
+  for (const report of active) {
     printReport(report);
   }
+}
+
+function printProjectSummary(reports: StaticAnalysisReport[], projectPath: string): void {
+  const divider = "═".repeat(60);
+  const totalTurns = reports.reduce((s, r) => s + r.totalTurns, 0);
+  const totalPrompts = reports.reduce((s, r) => s + r.promptCount, 0);
+  const totalChanges = reports.reduce((s, r) => s + r.fileChanges.length, 0);
+  const totalInputTokens = reports.reduce((s, r) => s + r.totalTokens.inputTokens, 0);
+  const totalOutputTokens = reports.reduce((s, r) => s + r.totalTokens.outputTokens, 0);
+
+  // Aggregate file change frequency across all sessions
+  const freq = new Map<string, number>();
+  for (const r of reports) {
+    for (const { filePath, changeCount } of r.changeFrequency) {
+      freq.set(filePath, (freq.get(filePath) ?? 0) + changeCount);
+    }
+  }
+  const topFiles = [...freq.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 10);
+
+  console.log(divider);
+  console.log(`📦 PROJECT SUMMARY`);
+  console.log(`   ${projectPath}`);
+  console.log(divider);
+  console.log(`  Active sessions: ${reports.length}`);
+  console.log(`  Total turns:     ${totalTurns.toLocaleString()}`);
+  console.log(`  User prompts:    ${totalPrompts.toLocaleString()}`);
+  console.log(`  File changes:    ${totalChanges.toLocaleString()}`);
+
+  const claudeReports = reports.filter((r) => r.tool !== "codex-cli");
+  if (totalInputTokens > 0) {
+    const claudeSessions = claudeReports.length;
+    console.log(`  Tokens (Claude): ${totalInputTokens.toLocaleString()} in / ${totalOutputTokens.toLocaleString()} out`);
+    console.log(`                   across ${claudeSessions} Claude Code session(s)`);
+  }
+
+  if (topFiles.length > 0) {
+    console.log(`\n🏆 Most Changed Files (all sessions)`);
+    const max = topFiles[0][1];
+    for (const [filePath, count] of topFiles) {
+      const bar = "█".repeat(Math.min(Math.round((count / max) * 20), 20));
+      const displayPath = filePath.startsWith(projectPath)
+        ? filePath.slice(projectPath.length + 1)
+        : filePath;
+      console.log(`  ${bar.padEnd(20)} ${count}x  ${displayPath}`);
+    }
+  }
+
+  console.log("\n" + divider + "\n");
 }
 
 function printReport(report: StaticAnalysisReport): void {
