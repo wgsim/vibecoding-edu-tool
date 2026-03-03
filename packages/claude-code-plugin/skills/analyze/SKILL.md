@@ -28,25 +28,31 @@ home = str(Path.home())
 sessions = []
 
 # ── Claude Code sessions ──────────────────────────────────────────
+# Directory name format: /path/to/project → -path-to-project (/ and _ both become -)
 claude_projects = os.path.join(home, ".claude", "projects")
 if os.path.isdir(claude_projects):
-    for jsonl in glob.glob(os.path.join(claude_projects, "*", "*.jsonl")):
+    proj_dir_name = "-" + project_path.replace("/", "-").replace("_", "-").lstrip("-")
+    proj_dir = os.path.join(claude_projects, proj_dir_name)
+    for jsonl in glob.glob(os.path.join(proj_dir, "*.jsonl")):
         try:
             with open(jsonl) as f:
                 lines = [json.loads(l) for l in f if l.strip()]
-            belongs = any(
-                l.get("cwd", "").startswith(project_path) or
-                l.get("type") == "summary" and project_path in json.dumps(l)
-                for l in lines[:5]
-            )
-            if not belongs:
-                proj_dir = os.path.basename(os.path.dirname(jsonl))
-                encoded = project_path.replace("/", "-").lstrip("-")
-                belongs = proj_dir in encoded or encoded.endswith(proj_dir[-20:])
-            if belongs:
+            if lines:
                 sessions.append(("claude-code", jsonl, lines))
         except Exception:
             pass
+    # Fallback: scan all projects and match by cwd field (handles edge cases)
+    if not sessions:
+        for jsonl in glob.glob(os.path.join(claude_projects, "*", "*.jsonl")):
+            try:
+                with open(jsonl) as f:
+                    first = json.loads(f.readline())
+                if first.get("cwd", "").startswith(project_path):
+                    with open(jsonl) as f:
+                        lines = [json.loads(l) for l in f if l.strip()]
+                    sessions.append(("claude-code", jsonl, lines))
+            except Exception:
+                pass
 
 # ── Codex CLI sessions ────────────────────────────────────────────
 codex_sessions = os.path.join(home, ".codex", "sessions")
