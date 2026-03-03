@@ -18,7 +18,7 @@ Run the following Python3 script with the Bash tool:
 
 ```bash
 python3 << 'PYEOF'
-import os, json, glob
+import os, json, glob, re
 from pathlib import Path
 from collections import defaultdict
 
@@ -47,7 +47,9 @@ if os.path.isdir(claude_projects):
             try:
                 with open(jsonl) as f:
                     first = json.loads(f.readline())
-                if first.get("cwd", "").startswith(project_path):
+                payload = first.get("payload", {}) if isinstance(first.get("payload"), dict) else {}
+                cwd = first.get("cwd", "") or payload.get("cwd", "")
+                if isinstance(cwd, str) and cwd.startswith(project_path):
                     with open(jsonl) as f:
                         lines = [json.loads(l) for l in f if l.strip()]
                     sessions.append(("claude-code", jsonl, lines))
@@ -57,15 +59,14 @@ if os.path.isdir(claude_projects):
 # ── Codex CLI sessions ────────────────────────────────────────────
 codex_sessions = os.path.join(home, ".codex", "sessions")
 if os.path.isdir(codex_sessions):
-    for jsonl in glob.glob(os.path.join(codex_sessions, "*.jsonl")):
+    for jsonl in glob.glob(os.path.join(codex_sessions, "**", "*.jsonl"), recursive=True):
         try:
             with open(jsonl) as f:
                 lines = [json.loads(l) for l in f if l.strip()]
-            belongs = any(
-                l.get("type") == "session_meta" and
-                l.get("cwd", "").startswith(project_path)
-                for l in lines[:10]
-            )
+            meta = next((l for l in lines[:20] if l.get("type") == "session_meta"), {})
+            payload = meta.get("payload", {}) if isinstance(meta.get("payload"), dict) else {}
+            cwd = meta.get("cwd", "") or payload.get("cwd", "")
+            belongs = isinstance(cwd, str) and cwd.startswith(project_path)
             if belongs:
                 sessions.append(("codex-cli", jsonl, lines))
         except Exception:
@@ -106,6 +107,53 @@ def is_meaningful(text):
 for tool, path, lines in sessions:
     last_prompt = ""
     for entry in lines:
+        if tool == "codex-cli":
+            etype = entry.get("type", "")
+            payload = entry.get("payload", {}) if isinstance(entry.get("payload"), dict) else {}
+
+            # Codex: user/assistant text is in response_item.payload.role/content
+            if etype == "response_item":
+                role = payload.get("role", "")
+                content = payload.get("content", "")
+
+                if role == "user":
+                    text = content if isinstance(content, str) else \
+                           " ".join(
+                               b.get("text", "")
+                               for b in content
+                               if isinstance(b, dict) and b.get("type") in ("input_text", "text")
+                           )
+                    text = text.strip()
+                    if is_meaningful(text):
+                        last_prompt = text
+                        total_prompts += 1
+                    total_turns += 1
+                    continue
+
+                if role == "assistant":
+                    total_turns += 1
+                    continue
+
+                # Codex: tool call is also response_item with payload.type=function_call
+                if payload.get("type") == "function_call":
+                    name = payload.get("name", "")
+                    args = {}
+                    raw_args = payload.get("arguments", "")
+                    if isinstance(raw_args, str) and raw_args:
+                        try:
+                            args = json.loads(raw_args)
+                        except Exception:
+                            args = {}
+                    fpath = args.get("file_path") or args.get("path")
+                    if name in FILE_TOOLS and isinstance(fpath, str) and fpath:
+                        file_freq[fpath] += 1
+                        prompt_file_map.append((last_prompt[:80], fpath, name))
+                    continue
+
+            # Codex token usage can live in event metadata, often unavailable here.
+            continue
+
+        # Claude Code path
         msg = entry.get("message", {})
         role = msg.get("role") or entry.get("role", "")
         content = msg.get("content") or entry.get("content", "")
