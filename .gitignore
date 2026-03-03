@@ -6,3 +6,4 @@ dist/
 *.env.local
 *.vsix
 plan/
+\n# Git Worktrees\n.worktrees/
