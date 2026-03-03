@@ -39,7 +39,11 @@
   },
   "scripts": {
     "build": "tsc && node esbuild.cli.mjs",
-    "dev": "tsc --watch"
+    "dev": "tsc --watch",
+    "package": "pnpm exec vsce package",
+    "typecheck": "tsc --noEmit",
+    "lint": "pnpm run typecheck",
+    "test": "pnpm run build"
   },
   "devDependencies": {
     "@types/vscode": "^1.85.0",
