@@ -29,11 +29,26 @@ async function xrayCommand(): Promise<void> {
 
   const level = await vscode.window.showQuickPick(
     [
-      { label: "$(mortar-board) Beginner", description: "Analogy-based — minimal jargon", value: "beginner" },
-      { label: "$(book) Intermediate", description: "Principles + pattern names", value: "intermediate" },
-      { label: "$(shield) Expert", description: "Architecture, risks, trade-offs", value: "expert" },
+      {
+        label: "$(mortar-board) Beginner",
+        description: "Analogy-based — minimal jargon",
+        value: "beginner",
+      },
+      {
+        label: "$(book) Intermediate",
+        description: "Principles + pattern names",
+        value: "intermediate",
+      },
+      {
+        label: "$(shield) Expert",
+        description: "Architecture, risks, trade-offs",
+        value: "expert",
+      },
     ],
-    { title: "X-Ray: Choose explanation depth", placeHolder: "Select your level" },
+    {
+      title: "X-Ray: Choose explanation depth",
+      placeHolder: "Select your level",
+    },
   );
   if (!level) return;
 
@@ -47,7 +62,9 @@ async function xrayCommand(): Promise<void> {
     editor.document.uri.fsPath,
   );
   const lineStart = selection.isEmpty ? 1 : selection.start.line + 1;
-  const lineEnd = selection.isEmpty ? editor.document.lineCount : selection.end.line + 1;
+  const lineEnd = selection.isEmpty
+    ? editor.document.lineCount
+    : selection.end.line + 1;
 
   const levelInstructions: Record<string, string> = {
     beginner:
@@ -67,7 +84,10 @@ async function xrayCommand(): Promise<void> {
     `${levelInstructions[level.value]}\n\n` +
     `End with a Dependency Map (how this code connects to the rest of the project) ` +
     `and a Learning Path (2–3 concepts to study next).\n\n` +
-    "```\n" + code.slice(0, 4000) + (code.length > 4000 ? "\n... (truncated)" : "") + "\n```";
+    "```\n" +
+    code.slice(0, 4000) +
+    (code.length > 4000 ? "\n... (truncated)" : "") +
+    "\n```";
 
   await vscode.env.clipboard.writeText(prompt);
 
@@ -79,7 +99,9 @@ async function xrayCommand(): Promise<void> {
   if (action === "Show Preview") {
     const channel = vscode.window.createOutputChannel("VibeCoding X-Ray");
     channel.clear();
-    channel.appendLine(`📍 X-Ray: ${fileName} (lines ${lineStart}–${lineEnd}) — ${level.value}`);
+    channel.appendLine(
+      `📍 X-Ray: ${fileName} (lines ${lineStart}–${lineEnd}) — ${level.value}`,
+    );
     channel.appendLine("─".repeat(60));
     channel.appendLine(prompt);
     channel.show();
@@ -97,11 +119,26 @@ async function dojoCommand(): Promise<void> {
 
   const difficulty = await vscode.window.showQuickPick(
     [
-      { label: "$(check) Easy", description: "2 bugs — null check, off-by-one", value: "easy" },
-      { label: "$(warning) Medium", description: "3 bugs — mixed categories, control flow", value: "medium" },
-      { label: "$(flame) Hard", description: "3 bugs — race condition, edge case, security", value: "hard" },
+      {
+        label: "$(check) Easy",
+        description: "2 bugs — null check, off-by-one",
+        value: "easy",
+      },
+      {
+        label: "$(warning) Medium",
+        description: "3 bugs — mixed categories, control flow",
+        value: "medium",
+      },
+      {
+        label: "$(flame) Hard",
+        description: "3 bugs — race condition, edge case, security",
+        value: "hard",
+      },
     ],
-    { title: "Debugging Dojo: Choose difficulty", placeHolder: "Select difficulty" },
+    {
+      title: "Debugging Dojo: Choose difficulty",
+      placeHolder: "Select difficulty",
+    },
   );
   if (!difficulty) return;
 
@@ -114,7 +151,8 @@ async function dojoCommand(): Promise<void> {
   const bugCount = difficulty.value === "easy" ? 2 : 3;
   const difficultyDetails: Record<string, string> = {
     easy: "2 bugs from: missing null check, off-by-one error, wrong comparison operator.",
-    medium: "3 bugs from mixed categories: logic error, type/null issue, and edge case.",
+    medium:
+      "3 bugs from mixed categories: logic error, type/null issue, and edge case.",
     hard: "3 subtle bugs spread across the code: race condition, security vulnerability, and a non-obvious edge case.",
   };
 
@@ -129,7 +167,10 @@ async function dojoCommand(): Promise<void> {
     "  - Identify each bug\n" +
     '  - Write a precise fix prompt for each (not "fix it" — the exact change needed)\n\n' +
     "After I submit, score my answer and explain each bug's root cause and real-world impact.\n\n" +
-    "```\n" + code.slice(0, 4000) + (code.length > 4000 ? "\n... (truncated)" : "") + "\n```";
+    "```\n" +
+    code.slice(0, 4000) +
+    (code.length > 4000 ? "\n... (truncated)" : "") +
+    "\n```";
 
   await vscode.env.clipboard.writeText(prompt);
 
@@ -160,18 +201,28 @@ async function analyzeCommand(): Promise<void> {
   const projectPath = workspaceFolder.uri.fsPath;
 
   await vscode.window.withProgress(
-    { location: vscode.ProgressLocation.Notification, title: "VibeCoding: Analyzing AI sessions…", cancellable: false },
+    {
+      location: vscode.ProgressLocation.Notification,
+      title: "VibeCoding: Analyzing AI sessions…",
+      cancellable: false,
+    },
     async () => {
       try {
         const cliPath = join(extensionPath, "cli", "dist", "cli.js");
-        const { stdout } = await execFileAsync("node", [cliPath, "analyze", projectPath]);
+        const { stdout } = await execFileAsync("node", [
+          cliPath,
+          "analyze",
+          projectPath,
+        ]);
         showAnalysisPanel(stdout, projectPath);
       } catch (err: unknown) {
         const error = err as { stdout?: string; message?: string };
         if (error.stdout) {
           showAnalysisPanel(error.stdout, projectPath);
         } else {
-          vscode.window.showErrorMessage(`VibeCoding Analyze: ${error.message}`);
+          vscode.window.showErrorMessage(
+            `VibeCoding Analyze: ${error.message}`,
+          );
         }
       }
     },
@@ -202,14 +253,16 @@ function buildAnalysisHtml(output: string, projectPath: string): string {
 
   const maxBar = fileRows[0]?.bar ?? 1;
 
-  const rows = fileRows.map((r) => {
-    const pct = Math.round((r.bar / maxBar) * 100);
-    return `<tr>
+  const rows = fileRows
+    .map((r) => {
+      const pct = Math.round((r.bar / maxBar) * 100);
+      return `<tr>
       <td class="file">${escHtml(r.file)}</td>
       <td class="bar-cell"><div class="bar" style="width:${pct}%"></div></td>
       <td class="count">${r.count}x</td>
     </tr>`;
-  }).join("\n");
+    })
+    .join("\n");
 
   // Extract summary lines (lines containing ":")
   const summaryLines = output
@@ -244,8 +297,12 @@ function buildAnalysisHtml(output: string, projectPath: string): string {
 
 ${summaryLines ? `<div class="stats">${summaryLines}</div>` : ""}
 
-${rows ? `<h2>Most Changed Files</h2>
-<table>${rows}</table>` : ""}
+${
+  rows
+    ? `<h2>Most Changed Files</h2>
+<table>${rows}</table>`
+    : ""
+}
 
 <h2>Full Output</h2>
 <pre>${escHtml(output)}</pre>

@@ -3,12 +3,7 @@ import { readFile, readdir } from "node:fs/promises";
 import { createInterface } from "node:readline";
 import { join, sep, basename } from "node:path";
 import { homedir } from "node:os";
-import type {
-  ParsedSession,
-  SessionTurn,
-  ToolCall,
-  TokenUsage,
-} from "../types.js";
+import type { ParsedSession, SessionTurn, ToolCall } from "../types.js";
 
 const CODEX_SESSIONS_DIR = join(homedir(), ".codex", "sessions");
 
@@ -17,9 +12,7 @@ const CODEX_SESSIONS_DIR = join(homedir(), ".codex", "sessions");
  * Codex stores sessions by date: ~/.codex/sessions/YYYY/MM/DD/rollout-*.jsonl
  * The working directory is in the first line's session_meta.payload.cwd
  */
-export async function findSessionFiles(
-  projectPath: string,
-): Promise<string[]> {
+export async function findSessionFiles(projectPath: string): Promise<string[]> {
   const allFiles = await collectJsonlFiles(CODEX_SESSIONS_DIR);
   const matched: string[] = [];
 
@@ -186,7 +179,11 @@ function extractCwd(filePath: string): Promise<string | null> {
     rl.once("line", (line) => {
       try {
         const entry = JSON.parse(line);
-        finish(entry.type === "session_meta" ? ((entry.payload?.cwd as string) ?? null) : null);
+        finish(
+          entry.type === "session_meta"
+            ? ((entry.payload?.cwd as string) ?? null)
+            : null,
+        );
       } catch {
         finish(null);
       }

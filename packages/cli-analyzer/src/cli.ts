@@ -1,7 +1,11 @@
 #!/usr/bin/env node
 
 import { resolve, relative } from "node:path";
-import { findAllSessions, parseSession, analyzeSession } from "@vibecoding/core";
+import {
+  findAllSessions,
+  parseSession,
+  analyzeSession,
+} from "@vibecoding/core";
 import type { StaticAnalysisReport } from "@vibecoding/core";
 
 async function main(): Promise<void> {
@@ -86,7 +90,7 @@ async function runAnalysis(projectPath: string): Promise<void> {
 
   console.log(
     `Found ${sessions.length} session(s). Analyzing... ` +
-    `(${active.length} active, ${skipped} empty skipped)\n`,
+      `(${active.length} active, ${skipped} empty skipped)\n`,
   );
 
   printProjectSummary(active, projectPath);
@@ -96,13 +100,22 @@ async function runAnalysis(projectPath: string): Promise<void> {
   }
 }
 
-function printProjectSummary(reports: StaticAnalysisReport[], projectPath: string): void {
+function printProjectSummary(
+  reports: StaticAnalysisReport[],
+  projectPath: string,
+): void {
   const divider = "═".repeat(60);
   const totalTurns = reports.reduce((s, r) => s + r.totalTurns, 0);
   const totalPrompts = reports.reduce((s, r) => s + r.promptCount, 0);
   const totalChanges = reports.reduce((s, r) => s + r.fileChanges.length, 0);
-  const totalInputTokens = reports.reduce((s, r) => s + r.totalTokens.inputTokens, 0);
-  const totalOutputTokens = reports.reduce((s, r) => s + r.totalTokens.outputTokens, 0);
+  const totalInputTokens = reports.reduce(
+    (s, r) => s + r.totalTokens.inputTokens,
+    0,
+  );
+  const totalOutputTokens = reports.reduce(
+    (s, r) => s + r.totalTokens.outputTokens,
+    0,
+  );
 
   // Aggregate file change frequency across all sessions
   const freq = new Map<string, number>();
@@ -111,9 +124,7 @@ function printProjectSummary(reports: StaticAnalysisReport[], projectPath: strin
       freq.set(filePath, (freq.get(filePath) ?? 0) + changeCount);
     }
   }
-  const topFiles = [...freq.entries()]
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 10);
+  const topFiles = [...freq.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10);
 
   console.log(divider);
   console.log(`📦 PROJECT SUMMARY`);
@@ -127,8 +138,12 @@ function printProjectSummary(reports: StaticAnalysisReport[], projectPath: strin
   const claudeReports = reports.filter((r) => r.tool !== "codex-cli");
   if (totalInputTokens > 0) {
     const claudeSessions = claudeReports.length;
-    console.log(`  Tokens (Claude): ${totalInputTokens.toLocaleString()} in / ${totalOutputTokens.toLocaleString()} out`);
-    console.log(`                   across ${claudeSessions} Claude Code session(s)`);
+    console.log(
+      `  Tokens (Claude): ${totalInputTokens.toLocaleString()} in / ${totalOutputTokens.toLocaleString()} out`,
+    );
+    console.log(
+      `                   across ${claudeSessions} Claude Code session(s)`,
+    );
   }
 
   if (topFiles.length > 0) {
@@ -163,14 +178,18 @@ function printReport(report: StaticAnalysisReport): void {
   console.log(`  Total turns:    ${report.totalTurns}`);
   console.log(`  User prompts:   ${report.promptCount}`);
   console.log(`  File changes:   ${report.fileChanges.length}`);
-  const tokenStr = report.tool === "codex-cli"
-    ? "N/A (not recorded by Codex CLI)"
-    : `${report.totalTokens.inputTokens.toLocaleString()} in / ${report.totalTokens.outputTokens.toLocaleString()} out`;
+  const tokenStr =
+    report.tool === "codex-cli"
+      ? "N/A (not recorded by Codex CLI)"
+      : `${report.totalTokens.inputTokens.toLocaleString()} in / ${report.totalTokens.outputTokens.toLocaleString()} out`;
   console.log(`  Tokens used:    ${tokenStr}`);
 
   if (report.changeFrequency.length > 0) {
     console.log(`\n📁 Most Changed Files`);
-    for (const { filePath, changeCount } of report.changeFrequency.slice(0, 10)) {
+    for (const { filePath, changeCount } of report.changeFrequency.slice(
+      0,
+      10,
+    )) {
       const bar = "█".repeat(Math.min(changeCount, 30));
       console.log(`  ${bar} ${changeCount}x  ${rel(filePath)}`);
     }
@@ -182,7 +201,9 @@ function printReport(report: StaticAnalysisReport): void {
       const prompt = change.promptText.slice(0, 80).replace(/\n/g, " ");
       const icon = change.changeType === "create" ? "+" : "~";
       console.log(`  [${icon}] ${rel(change.filePath)}`);
-      console.log(`      ← "${prompt}${change.promptText.length > 80 ? "..." : ""}"`);
+      console.log(
+        `      ← "${prompt}${change.promptText.length > 80 ? "..." : ""}"`,
+      );
     }
     if (report.fileChanges.length > 15) {
       console.log(`  ... and ${report.fileChanges.length - 15} more changes`);

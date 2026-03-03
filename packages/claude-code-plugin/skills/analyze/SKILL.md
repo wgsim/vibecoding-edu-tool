@@ -173,14 +173,17 @@ PYEOF
 Based on the analysis output, provide insights:
 
 **File change frequency:**
+
 - Most-changed files → core modules or areas with unstable design
 - Even distribution → systematic development; concentrated changes → possible refactoring need
 
 **Prompt efficiency:**
+
 - Short prompt → many file changes: efficient
 - Long prompt → few changes: room to improve prompt clarity
 
 **Token usage:**
+
 - Input tokens >> output tokens: long context maintained (large files repeatedly referenced)
 - Balanced ratio: efficient session
 

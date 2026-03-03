@@ -27,9 +27,7 @@ export function encodeProjectPath(projectPath: string): string {
  * Find all session files for a given project path.
  * Uses fuzzy matching: scans all project dirs and matches by encoded path.
  */
-export async function findSessionFiles(
-  projectPath: string,
-): Promise<string[]> {
+export async function findSessionFiles(projectPath: string): Promise<string[]> {
   const encoded = encodeProjectPath(projectPath);
 
   // Try exact match first
@@ -174,9 +172,7 @@ function extractToolCalls(entry: Record<string, unknown>): ToolCall[] {
     }));
 }
 
-function extractTokenUsage(
-  entry: Record<string, unknown>,
-): TokenUsage | null {
+function extractTokenUsage(entry: Record<string, unknown>): TokenUsage | null {
   // Usage can be at entry.usage or entry.message.usage
   const usage =
     (entry.usage as Record<string, unknown> | undefined) ??
@@ -208,7 +204,8 @@ export function isMeaningfulPrompt(text: string): boolean {
   if (t.length < 15) return false;
 
   // System / tool error messages (XML-tagged blocks with no free text)
-  if (/^<[a-z]/.test(t) && t.replace(/<[^>]+>/g, "").trim().length < 15) return false;
+  if (/^<[a-z]/.test(t) && t.replace(/<[^>]+>/g, "").trim().length < 15)
+    return false;
   if (/^(Unknown skill:|Error:|Warning:)/i.test(t)) return false;
 
   // Purely numeric option selection: "1", "2번", "3.", "option 2"

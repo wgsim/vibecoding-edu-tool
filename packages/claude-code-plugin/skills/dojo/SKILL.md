@@ -39,13 +39,13 @@ Read the code and understand its **intended behavior** before injecting bugs. Yo
 
 Choose from these categories:
 
-| Category | Examples |
-|----------|---------|
-| **Logic** | off-by-one, wrong comparison operator (`>` vs `>=`), inverted condition |
-| **Type/Null** | missing null check, wrong type assumption, undefined access |
-| **Async** | missing `await`, race condition, unhandled promise rejection |
-| **Edge case** | empty array not handled, division by zero, string encoding issue |
-| **Security** | SQL-injectable pattern, hardcoded secret, missing input validation |
+| Category      | Examples                                                                |
+| ------------- | ----------------------------------------------------------------------- |
+| **Logic**     | off-by-one, wrong comparison operator (`>` vs `>=`), inverted condition |
+| **Type/Null** | missing null check, wrong type assumption, undefined access             |
+| **Async**     | missing `await`, race condition, unhandled promise rejection            |
+| **Edge case** | empty array not handled, division by zero, string encoding issue        |
+| **Security**  | SQL-injectable pattern, hardcoded secret, missing input validation      |
 
 **Hard mode**: Spread bugs across multiple locations so no single area reveals them all.
 
@@ -77,11 +77,13 @@ Hints (reveal one at a time on request):
 When the user submits their fix prompts:
 
 **Score per bug:**
+
 - ✅ Correctly identified + precise fix prompt
 - ⚠️ Found the bug but prompt is too vague
 - ❌ Missed
 
 **Feedback:**
+
 - Score: X/[2 or 3]
 - Explain the **root cause** and **real impact** of each bug
 - Show a model fix prompt

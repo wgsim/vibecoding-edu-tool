@@ -4,11 +4,11 @@ A Claude Code skill plugin for understanding AI-generated code, practicing debug
 
 ## Skills
 
-| Skill | Invocation | Description |
-|-------|-----------|-------------|
-| X-Ray | `/vibecoding-edu:xray` | Explain AI-generated code line-by-line from a traditional engineering perspective |
-| Dojo | `/vibecoding-edu:dojo` | Inject bugs into real project code and practice finding them through precise prompting |
-| Analyze | `/vibecoding-edu:analyze` | Run static analysis on AI coding session history for the current project |
+| Skill   | Invocation                | Description                                                                            |
+| ------- | ------------------------- | -------------------------------------------------------------------------------------- |
+| X-Ray   | `/vibecoding-edu:xray`    | Explain AI-generated code line-by-line from a traditional engineering perspective      |
+| Dojo    | `/vibecoding-edu:dojo`    | Inject bugs into real project code and practice finding them through precise prompting |
+| Analyze | `/vibecoding-edu:analyze` | Run static analysis on AI coding session history for the current project               |
 
 ---
 
@@ -74,9 +74,9 @@ Running `claude plugin install` inside a Claude session writes `installPath` to 
 
 `install.sh` bypasses this by directly writing to the global paths:
 
-| Step | Target | Action |
-|------|--------|--------|
-| 1 | `~/.claude/plugins/cache/vibecoding-edu/vibecoding-edu/0.1.0/` | Copy plugin files |
-| 2 | `~/.claude/plugins/marketplaces/vibecoding-edu/plugins/vibecoding-edu/` | Sync local marketplace |
-| 3 | `~/.claude/plugins/installed_plugins.json` | Register with global cache path as `installPath` |
-| 4 | `~/.claude/settings.json` | Enable in `enabledPlugins` |
+| Step | Target                                                                  | Action                                           |
+| ---- | ----------------------------------------------------------------------- | ------------------------------------------------ |
+| 1    | `~/.claude/plugins/cache/vibecoding-edu/vibecoding-edu/0.1.0/`          | Copy plugin files                                |
+| 2    | `~/.claude/plugins/marketplaces/vibecoding-edu/plugins/vibecoding-edu/` | Sync local marketplace                           |
+| 3    | `~/.claude/plugins/installed_plugins.json`                              | Register with global cache path as `installPath` |
+| 4    | `~/.claude/settings.json`                                               | Enable in `enabledPlugins`                       |

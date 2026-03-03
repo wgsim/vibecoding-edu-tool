@@ -35,6 +35,7 @@ For each significant code section, explain according to the selected level:
 ---
 
 **Beginner** — analogy-first, minimal terminology
+
 ```
 📍 [file:line_range]
    In one sentence: [everyday analogy — LEGO, cooking, mailbox, etc.]
@@ -43,6 +44,7 @@ For each significant code section, explain according to the selected level:
 ```
 
 **Intermediate** — principles + pattern names
+
 ```
 📍 [file:line_range] — brief description
    What:    [what it does]
@@ -51,6 +53,7 @@ For each significant code section, explain according to the selected level:
 ```
 
 **Expert** — architecture, risks, trade-offs
+
 ```
 📍 [file:line_range] — brief description
    Design decision: [why this structure was chosen]
@@ -67,6 +70,7 @@ End with:
 **Dependency map** — how the analyzed code connects to the rest of the project
 
 **Learning path** (by level):
+
 - Beginner: 1–2 things to learn next to fully understand this code
 - Intermediate: 2–3 traditional CS concepts that underpin this code
 - Expert: patterns, papers, or books relevant to architectural improvement

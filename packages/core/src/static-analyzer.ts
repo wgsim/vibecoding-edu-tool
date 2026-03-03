@@ -130,7 +130,9 @@ function parseExecCommandForFileChange(
   }
 
   // sed -i modifies files in-place
-  const sedMatch = cmd.match(new RegExp(`sed\\s+-i[^\\s]*\\s+.*\\s+${pathToken}`));
+  const sedMatch = cmd.match(
+    new RegExp(`sed\\s+-i[^\\s]*\\s+.*\\s+${pathToken}`),
+  );
   const sedPath = sedMatch?.[1] ? sanitizeFilePath(sedMatch[1]) : null;
   if (sedPath) {
     return { filePath: sedPath, changeType: "edit", promptText, turnIndex };
