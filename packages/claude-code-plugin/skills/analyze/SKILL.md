@@ -86,6 +86,23 @@ prompt_file_map = []
 
 FILE_TOOLS = {"Write", "write", "Edit", "edit"}
 
+TRIVIAL_EN = re.compile(
+    r"^(yes|no|ok|okay|sure|yep|yeah|nope|go|proceed|continue|next|done|"
+    r"fine|great|sounds good|got it|agreed|perfect|correct|right|good|"
+    r"nice|cool|thanks|thank you|please proceed)[.\s!?]*$", re.I)
+TRIVIAL_KO = re.compile(
+    r"^(응|네|아니|ㄴ|ㅇ|ㅇㅇ|ㄱㄱ|고|좋아|오케이|알겠어|알겠습니다|"
+    r"진행해줘|계속해줘|그래|맞아|넵|넹|ㅇㅋ|감사|감사합니다)[.\s!?]*$")
+
+def is_meaningful(text):
+    t = text.strip()
+    if len(t) < 15: return False
+    if re.match(r"^<[a-z]", t): return False
+    if re.match(r"^(Unknown skill:|Error:|Warning:)", t, re.I): return False
+    if re.match(r"^(option\s*)?\d+[번.\s!?]*$", t, re.I): return False
+    if TRIVIAL_EN.match(t) or TRIVIAL_KO.match(t): return False
+    return True
+
 for tool, path, lines in sessions:
     last_prompt = ""
     for entry in lines:
@@ -96,8 +113,9 @@ for tool, path, lines in sessions:
         if role == "user":
             text = content if isinstance(content, str) else \
                    " ".join(b.get("text","") for b in content if isinstance(b, dict) and b.get("type")=="text")
-            if text.strip():
-                last_prompt = text.strip()
+            text = text.strip()
+            if is_meaningful(text):
+                last_prompt = text
                 total_prompts += 1
             total_turns += 1
         elif role == "assistant":

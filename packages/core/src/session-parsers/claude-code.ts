@@ -117,10 +117,7 @@ function extractTurn(entry: Record<string, unknown>): SessionTurn | null {
   if (type === "user" || type === "human" || entry.role === "user") {
     const content = extractContent(entry);
     if (!content) return null;
-    // Filter out system/command messages that aren't real user prompts
-    if (content.startsWith("<local-command") || content.startsWith("<command-name")) {
-      return null;
-    }
+    if (!isMeaningfulPrompt(content)) return null;
     return { timestamp, role: "user", content };
   }
 
@@ -197,4 +194,32 @@ function extractTokenUsage(
   if (inputTokens === 0 && outputTokens === 0) return null;
 
   return { inputTokens, outputTokens };
+}
+
+/**
+ * Returns true if the prompt is substantive enough to be worth tracking.
+ * Filters out: system messages, one-word acknowledgements, numeric option
+ * selections, and other low-signal responses to AI questions.
+ */
+export function isMeaningfulPrompt(text: string): boolean {
+  const t = text.trim();
+
+  // System / tool error messages
+  if (/^<[a-z]/.test(t)) return false;
+  if (/^(Unknown skill:|Error:|Warning:)/i.test(t)) return false;
+
+  // Too short to carry intent (single word, emoji, punctuation only)
+  if (t.length < 15) return false;
+
+  // Purely numeric option selection: "1", "2번", "3.", "option 2"
+  if (/^(option\s*)?\d+[번.\s!?]*$/i.test(t)) return false;
+
+  // Single-word or short-phrase affirmatives / continuations (KO + EN)
+  const trivial =
+    /^(yes|no|ok|okay|sure|yep|yeah|nope|go|proceed|continue|next|done|fine|great|sounds good|got it|agreed|perfect|correct|exactly|right|good|nice|cool|thanks|thank you|please|please proceed)[.\s!?]*$/i;
+  const trivialKo =
+    /^(응|네|아니|ㄴ|ㅇ|ㅇㅇ|ㄱㄱ|고|좋아|오케이|알겠어|알겠습니다|진행해줘|계속해줘|그래|그렇구나|맞아|맞습니다|넵|넹|ㅇㅋ|ㄳ|감사|감사합니다)[.\s!?]*$/;
+  if (trivial.test(t) || trivialKo.test(t)) return false;
+
+  return true;
 }
