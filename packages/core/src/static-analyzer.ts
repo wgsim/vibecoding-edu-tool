@@ -116,7 +116,7 @@ function parseExecCommandForFileChange(
   const pathToken = `["']?([^\\s"';)&|><]+)`;
   const writePatterns = [
     new RegExp(`(?:cat|tee)\\s+>\\s*${pathToken}`),
-    new RegExp(`echo\\s+.*>\\s*${pathToken}`),
+    new RegExp(`echo\\s+[^>]*>\\s*${pathToken}`),
     new RegExp(`(?:mv|cp)\\s+\\S+\\s+${pathToken}`),
     new RegExp(`mkdir\\s+-p\\s+${pathToken}`),
   ];

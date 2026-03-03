@@ -1,5 +1,5 @@
 import { readFile, readdir } from "node:fs/promises";
-import { join, sep } from "node:path";
+import { join, basename } from "node:path";
 import { homedir } from "node:os";
 import type {
   ParsedSession,
@@ -12,8 +12,12 @@ const CLAUDE_PROJECTS_DIR = join(homedir(), ".claude", "projects");
 
 /**
  * Encode a project path to the Claude Code directory name format.
- * Claude Code replaces both path separators and underscores with hyphens.
+ * Claude Code replaces /, \, _, and spaces with hyphens.
  * e.g., "/Users/alice/my_project" → "-Users-alice-my-project"
+ *
+ * NOTE: This encoding is intentionally lossy to match Claude Code's own behavior.
+ * "my_project" and "my-project" map to the same directory — identical to how
+ * Claude Code itself stores them.
  */
 export function encodeProjectPath(projectPath: string): string {
   return projectPath.replace(/[/\\_ ]/g, "-");
@@ -89,11 +93,7 @@ export async function parseSessionFile(
     }
   }
 
-  // Extract session ID from filename (e.g., "abc-def-123.jsonl" → "abc-def-123")
-  const sessionId = sessionFilePath
-    .split(sep)
-    .pop()!
-    .replace(".jsonl", "");
+  const sessionId = basename(sessionFilePath, ".jsonl");
 
   return {
     tool: "claude-code",
@@ -204,15 +204,15 @@ function extractTokenUsage(
 export function isMeaningfulPrompt(text: string): boolean {
   const t = text.trim();
 
-  // System / tool error messages
-  if (/^<[a-z]/.test(t)) return false;
-  if (/^(Unknown skill:|Error:|Warning:)/i.test(t)) return false;
-
   // Too short to carry intent (single word, emoji, punctuation only)
   if (t.length < 15) return false;
 
+  // System / tool error messages (XML-tagged blocks with no free text)
+  if (/^<[a-z]/.test(t) && t.replace(/<[^>]+>/g, "").trim().length < 15) return false;
+  if (/^(Unknown skill:|Error:|Warning:)/i.test(t)) return false;
+
   // Purely numeric option selection: "1", "2번", "3.", "option 2"
-  if (/^(option\s*)?\d+[번.\s!?]*$/i.test(t)) return false;
+  if (/^(option\s*)?\d+[번.,\s!?]*$/i.test(t)) return false;
 
   // Single-word or short-phrase affirmatives / continuations (KO + EN)
   const trivial =

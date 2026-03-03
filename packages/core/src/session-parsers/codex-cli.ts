@@ -1,5 +1,7 @@
+import { createReadStream } from "node:fs";
 import { readFile, readdir } from "node:fs/promises";
-import { join, sep } from "node:path";
+import { createInterface } from "node:readline";
+import { join, sep, basename } from "node:path";
 import { homedir } from "node:os";
 import type {
   ParsedSession,
@@ -80,7 +82,7 @@ export async function parseSessionFile(
   }
 
   if (!sessionId) {
-    sessionId = sessionFilePath.split(sep).pop()!.replace(".jsonl", "");
+    sessionId = basename(sessionFilePath, ".jsonl");
   }
 
   return {
@@ -168,23 +170,31 @@ function extractContent(payload: Record<string, unknown>): string | null {
   return null;
 }
 
-/** Extract cwd from session_meta (first line) */
-async function extractCwd(filePath: string): Promise<string | null> {
-  try {
-    const content = await readFile(filePath, "utf-8");
-    const firstNewline = content.indexOf("\n");
-    const firstLine = firstNewline > 0 ? content.slice(0, firstNewline) : content;
+/** Extract cwd from session_meta (first line only — avoids loading entire file) */
+function extractCwd(filePath: string): Promise<string | null> {
+  return new Promise((resolve) => {
+    const rl = createInterface({ input: createReadStream(filePath) });
+    let settled = false;
 
-    if (!firstLine.trim()) return null;
-    const entry = JSON.parse(firstLine);
+    const finish = (value: string | null) => {
+      if (settled) return;
+      settled = true;
+      rl.close();
+      resolve(value);
+    };
 
-    if (entry.type === "session_meta") {
-      return (entry.payload?.cwd as string) ?? null;
-    }
-  } catch {
-    // File not readable or malformed
-  }
-  return null;
+    rl.once("line", (line) => {
+      try {
+        const entry = JSON.parse(line);
+        finish(entry.type === "session_meta" ? ((entry.payload?.cwd as string) ?? null) : null);
+      } catch {
+        finish(null);
+      }
+    });
+
+    rl.once("close", () => finish(null));
+    rl.once("error", () => finish(null));
+  });
 }
 
 /** Recursively collect all .jsonl files under a directory */
