@@ -5,6 +5,54 @@ import { promisify } from "node:util";
 
 const execFileAsync = promisify(execFile);
 
+interface TokenUsageJson {
+  inputTokens: number;
+  outputTokens: number;
+}
+
+interface AnalysisPromptMappingJson {
+  filePath: string;
+  changeType: "create" | "edit" | "delete";
+  promptText: string;
+  turnIndex: number;
+}
+
+interface AnalysisSessionJson {
+  sessionId: string;
+  tool: "claude-code" | "codex-cli";
+  totalTurns: number;
+  promptCount: number;
+  fileChangeCount: number;
+  tokens: TokenUsageJson;
+  topFiles: Array<{ filePath: string; changeCount: number }>;
+  promptMappings: AnalysisPromptMappingJson[];
+}
+
+interface FailedSessionJson {
+  tool: "claude-code" | "codex-cli";
+  filePath: string;
+  error: string;
+}
+
+interface AnalysisResultJson {
+  projectPath: string;
+  sessionsFound: number;
+  activeSessions: number;
+  skippedSessions: number;
+  failedSessions: number;
+  totals: {
+    turns: number;
+    prompts: number;
+    fileChanges: number;
+    inputTokens: number;
+    outputTokens: number;
+    claudeSessions: number;
+  };
+  topFiles: Array<{ filePath: string; changeCount: number }>;
+  sessions: AnalysisSessionJson[];
+  errors: FailedSessionJson[];
+}
+
 let extensionPath: string;
 
 export function activate(context: vscode.ExtensionContext): void {
@@ -164,12 +212,18 @@ async function analyzeCommand(): Promise<void> {
     async () => {
       try {
         const cliPath = join(extensionPath, "cli", "dist", "cli.js");
-        const { stdout } = await execFileAsync("node", [cliPath, "analyze", projectPath]);
-        showAnalysisPanel(stdout, projectPath);
+        const { stdout } = await execFileAsync("node", [cliPath, "analyze", projectPath, "--json"]);
+        const parsed = parseAnalysisJson(stdout);
+        showAnalysisPanel(parsed);
       } catch (err: unknown) {
         const error = err as { stdout?: string; message?: string };
         if (error.stdout) {
-          showAnalysisPanel(error.stdout, projectPath);
+          try {
+            const parsed = parseAnalysisJson(error.stdout);
+            showAnalysisPanel(parsed);
+          } catch {
+            showRawAnalysisPanel(error.stdout, projectPath);
+          }
         } else {
           vscode.window.showErrorMessage(`VibeCoding Analyze: ${error.message}`);
         }
@@ -178,44 +232,115 @@ async function analyzeCommand(): Promise<void> {
   );
 }
 
-function showAnalysisPanel(output: string, projectPath: string): void {
+function parseAnalysisJson(raw: string): AnalysisResultJson {
+  const parsed = JSON.parse(raw) as unknown;
+  if (!isAnalysisResultJson(parsed)) {
+    throw new Error("Invalid analysis JSON payload");
+  }
+  return parsed;
+}
+
+function isAnalysisResultJson(value: unknown): value is AnalysisResultJson {
+  if (!isRecord(value)) return false;
+  if (typeof value.projectPath !== "string") return false;
+  if (typeof value.sessionsFound !== "number") return false;
+  if (!isRecord(value.totals)) return false;
+  if (!Array.isArray(value.topFiles)) return false;
+  if (!Array.isArray(value.sessions)) return false;
+  if (!Array.isArray(value.errors)) return false;
+  return true;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function showAnalysisPanel(data: AnalysisResultJson): void {
   const panel = vscode.window.createWebviewPanel(
     "vibecoding.analysis",
     "VibeCoding Analysis",
     vscode.ViewColumn.Beside,
     {},
   );
-  panel.webview.html = buildAnalysisHtml(output, projectPath);
+  panel.webview.html = buildAnalysisHtml(data);
 }
 
-function buildAnalysisHtml(output: string, projectPath: string): string {
-  // Parse bar chart lines: "  ████████            8x  src/foo.ts"
-  const fileRows = output
-    .split("\n")
-    .filter((l) => /^\s+[#█]+\s+\d+x\s+\S/.test(l))
-    .map((l) => {
-      const m = l.match(/([#█]+)\s+(\d+)x\s+(.+)/);
-      if (!m) return null;
-      return { bar: m[1].length, count: parseInt(m[2]), file: m[3].trim() };
-    })
-    .filter(Boolean) as { bar: number; count: number; file: string }[];
+function showRawAnalysisPanel(rawOutput: string, projectPath: string): void {
+  const panel = vscode.window.createWebviewPanel(
+    "vibecoding.analysis",
+    "VibeCoding Analysis",
+    vscode.ViewColumn.Beside,
+    {},
+  );
+  panel.webview.html = `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+  body { font-family: var(--vscode-font-family); font-size: 13px; padding: 16px; color: var(--vscode-foreground); background: var(--vscode-editor-background); }
+  h1 { font-size: 15px; margin-bottom: 4px; }
+  .path { color: var(--vscode-descriptionForeground); font-size: 11px; margin-bottom: 16px; word-break: break-all; }
+  .warn { background: var(--vscode-inputValidation-warningBackground); color: var(--vscode-inputValidation-warningForeground); border: 1px solid var(--vscode-inputValidation-warningBorder); border-radius: 4px; padding: 8px 10px; margin-bottom: 12px; }
+  pre { font-size: 11px; white-space: pre-wrap; background: var(--vscode-editor-inactiveSelectionBackground); padding: 10px; border-radius: 4px; overflow: auto; max-height: 400px; }
+</style>
+</head>
+<body>
+<h1>VibeCoding — AI Session Analysis</h1>
+<div class="path">${escHtml(projectPath)}</div>
+<div class="warn">Could not parse JSON output. Showing raw CLI output.</div>
+<pre>${escHtml(rawOutput)}</pre>
+</body>
+</html>`;
+}
 
-  const maxBar = fileRows[0]?.bar ?? 1;
-
-  const rows = fileRows.map((r) => {
-    const pct = Math.round((r.bar / maxBar) * 100);
+function buildAnalysisHtml(data: AnalysisResultJson): string {
+  const maxCount = data.topFiles[0]?.changeCount ?? 1;
+  const topFileRows = data.topFiles.map((entry) => {
+    const pct = Math.round((entry.changeCount / maxCount) * 100);
     return `<tr>
-      <td class="file">${escHtml(r.file)}</td>
+      <td class="file">${escHtml(entry.filePath)}</td>
       <td class="bar-cell"><div class="bar" style="width:${pct}%"></div></td>
-      <td class="count">${r.count}x</td>
+      <td class="count">${entry.changeCount}x</td>
     </tr>`;
   }).join("\n");
 
-  // Extract summary lines (lines containing ":")
-  const summaryLines = output
-    .split("\n")
-    .filter((l) => /:\s+[\d,]+/.test(l) || /Tokens/.test(l))
-    .map((l) => `<div class="stat-line">${escHtml(l.trim())}</div>`)
+  const sessionRows = data.sessions.slice(0, 20).map((session) => {
+    return `<tr>
+      <td class="mono">${escHtml(session.sessionId)}</td>
+      <td>${escHtml(session.tool)}</td>
+      <td class="mono">${session.totalTurns}</td>
+      <td class="mono">${session.promptCount}</td>
+      <td class="mono">${session.fileChangeCount}</td>
+    </tr>`;
+  }).join("\n");
+
+  const errorRows = data.errors.map((entry) => {
+    return `<tr>
+      <td>${escHtml(entry.tool)}</td>
+      <td class="mono">${escHtml(entry.filePath)}</td>
+      <td>${escHtml(entry.error)}</td>
+    </tr>`;
+  }).join("\n");
+
+  const stats = [
+    `Sessions found: ${data.sessionsFound}`,
+    `Active sessions: ${data.activeSessions}`,
+    `Skipped sessions: ${data.skippedSessions}`,
+    `Failed sessions: ${data.failedSessions}`,
+    `Total turns: ${data.totals.turns.toLocaleString()}`,
+    `User prompts: ${data.totals.prompts.toLocaleString()}`,
+    `File changes: ${data.totals.fileChanges.toLocaleString()}`,
+  ];
+
+  if (data.totals.inputTokens > 0) {
+    stats.push(
+      `Tokens (Claude): ${data.totals.inputTokens.toLocaleString()} in / ${data.totals.outputTokens.toLocaleString()} out`,
+      `Claude sessions: ${data.totals.claudeSessions}`,
+    );
+  }
+
+  const statLines = stats
+    .map((line) => `<div class="stat-line">${escHtml(line)}</div>`)
     .join("\n");
 
   return `<!DOCTYPE html>
@@ -225,30 +350,51 @@ function buildAnalysisHtml(output: string, projectPath: string): string {
 <style>
   body { font-family: var(--vscode-font-family); font-size: 13px; padding: 16px; color: var(--vscode-foreground); background: var(--vscode-editor-background); }
   h1 { font-size: 15px; margin-bottom: 4px; }
+  h2 { font-size: 13px; margin: 16px 0 8px; }
   .path { color: var(--vscode-descriptionForeground); font-size: 11px; margin-bottom: 16px; word-break: break-all; }
   .stats { background: var(--vscode-editor-inactiveSelectionBackground); border-radius: 4px; padding: 10px 14px; margin-bottom: 20px; }
   .stat-line { margin: 2px 0; font-family: monospace; }
-  h2 { font-size: 13px; margin: 16px 0 8px; }
   table { border-collapse: collapse; width: 100%; }
-  td { padding: 3px 6px; vertical-align: middle; }
-  .file { font-family: monospace; font-size: 12px; white-space: nowrap; max-width: 280px; overflow: hidden; text-overflow: ellipsis; }
+  th, td { padding: 4px 6px; vertical-align: middle; border-bottom: 1px solid var(--vscode-panel-border); text-align: left; }
+  .file { font-family: monospace; font-size: 12px; word-break: break-all; }
+  .mono { font-family: monospace; font-size: 12px; }
   .bar-cell { width: 40%; padding: 3px 8px; }
   .bar { height: 12px; background: var(--vscode-progressBar-background, #0e70c0); border-radius: 2px; min-width: 2px; }
   .count { font-family: monospace; color: var(--vscode-descriptionForeground); white-space: nowrap; }
-  pre { font-size: 11px; white-space: pre-wrap; background: var(--vscode-editor-inactiveSelectionBackground); padding: 10px; border-radius: 4px; overflow: auto; max-height: 400px; }
 </style>
 </head>
 <body>
 <h1>VibeCoding — AI Session Analysis</h1>
-<div class="path">${escHtml(projectPath)}</div>
+<div class="path">${escHtml(data.projectPath)}</div>
 
-${summaryLines ? `<div class="stats">${summaryLines}</div>` : ""}
+<div class="stats">${statLines}</div>
 
-${rows ? `<h2>Most Changed Files</h2>
-<table>${rows}</table>` : ""}
+${topFileRows ? `<h2>Most Changed Files</h2>
+<table>${topFileRows}</table>` : ""}
 
-<h2>Full Output</h2>
-<pre>${escHtml(output)}</pre>
+${sessionRows ? `<h2>Active Sessions</h2>
+<table>
+  <thead>
+    <tr>
+      <th>Session</th><th>Tool</th><th>Turns</th><th>Prompts</th><th>File Changes</th>
+    </tr>
+  </thead>
+  <tbody>
+    ${sessionRows}
+  </tbody>
+</table>` : ""}
+
+${errorRows ? `<h2>Failed Sessions</h2>
+<table>
+  <thead>
+    <tr>
+      <th>Tool</th><th>File</th><th>Error</th>
+    </tr>
+  </thead>
+  <tbody>
+    ${errorRows}
+  </tbody>
+</table>` : ""}
 </body>
 </html>`;
 }
