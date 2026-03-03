@@ -1,37 +1,165 @@
 ---
 name: analyze
-description: Run static analysis on AI coding session history for the current project
+description: Analyze AI coding session history for the current project. Shows file change frequency, prompt-to-file mappings, and token usage.
+tools: Bash
 ---
 
-# Session Analyzer — Level 1 Static Analysis
+# Session Analyzer — AI Session History Analysis
 
-Analyze AI coding session history for the current project using the VibeCoding CLI analyzer.
+> **Language**: Detect the user's language from their input and respond in that language throughout. Default to English if unclear.
+
+Analyze AI coding sessions (Claude Code, Codex CLI) for the current project and provide learning insights.
 
 ## Instructions
 
-1. **Run the CLI analyzer** on the current project directory:
+### 1. Run the analysis script
+
+Run the following Python3 script with the Bash tool:
 
 ```bash
-node [plugin_root]/../../cli-analyzer/dist/cli.js analyze "$(pwd)"
+python3 << 'PYEOF'
+import os, json, glob
+from pathlib import Path
+from collections import defaultdict
+
+project_path = os.getcwd()
+home = str(Path.home())
+
+sessions = []
+
+# ── Claude Code sessions ──────────────────────────────────────────
+claude_projects = os.path.join(home, ".claude", "projects")
+if os.path.isdir(claude_projects):
+    for jsonl in glob.glob(os.path.join(claude_projects, "*", "*.jsonl")):
+        try:
+            with open(jsonl) as f:
+                lines = [json.loads(l) for l in f if l.strip()]
+            belongs = any(
+                l.get("cwd", "").startswith(project_path) or
+                l.get("type") == "summary" and project_path in json.dumps(l)
+                for l in lines[:5]
+            )
+            if not belongs:
+                proj_dir = os.path.basename(os.path.dirname(jsonl))
+                encoded = project_path.replace("/", "-").lstrip("-")
+                belongs = proj_dir in encoded or encoded.endswith(proj_dir[-20:])
+            if belongs:
+                sessions.append(("claude-code", jsonl, lines))
+        except Exception:
+            pass
+
+# ── Codex CLI sessions ────────────────────────────────────────────
+codex_sessions = os.path.join(home, ".codex", "sessions")
+if os.path.isdir(codex_sessions):
+    for jsonl in glob.glob(os.path.join(codex_sessions, "*.jsonl")):
+        try:
+            with open(jsonl) as f:
+                lines = [json.loads(l) for l in f if l.strip()]
+            belongs = any(
+                l.get("type") == "session_meta" and
+                l.get("cwd", "").startswith(project_path)
+                for l in lines[:10]
+            )
+            if belongs:
+                sessions.append(("codex-cli", jsonl, lines))
+        except Exception:
+            pass
+
+if not sessions:
+    print(f"No AI sessions found for: {project_path}")
+    print("Supported tools: Claude Code (~/.claude/projects/), Codex CLI (~/.codex/sessions/)")
+    exit(0)
+
+# ── Aggregate analysis ────────────────────────────────────────────
+total_turns = 0
+total_prompts = 0
+total_in = 0
+total_out = 0
+file_freq = defaultdict(int)
+prompt_file_map = []
+
+FILE_TOOLS = {"Write", "write", "Edit", "edit"}
+
+for tool, path, lines in sessions:
+    last_prompt = ""
+    for entry in lines:
+        msg = entry.get("message", {})
+        role = msg.get("role") or entry.get("role", "")
+        content = msg.get("content") or entry.get("content", "")
+
+        if role == "user":
+            text = content if isinstance(content, str) else \
+                   " ".join(b.get("text","") for b in content if isinstance(b, dict) and b.get("type")=="text")
+            if text.strip():
+                last_prompt = text.strip()
+                total_prompts += 1
+            total_turns += 1
+        elif role == "assistant":
+            total_turns += 1
+            usage = msg.get("usage") or entry.get("usage", {})
+            total_in  += usage.get("input_tokens", 0)
+            total_out += usage.get("output_tokens", 0)
+            if isinstance(content, list):
+                for block in content:
+                    if isinstance(block, dict) and block.get("type") == "tool_use":
+                        name = block.get("name", "")
+                        inp  = block.get("input", {})
+                        fpath = inp.get("file_path") or inp.get("path")
+                        if name in FILE_TOOLS and fpath:
+                            file_freq[fpath] += 1
+                            prompt_file_map.append((last_prompt[:80], fpath, name))
+
+# ── Print report ──────────────────────────────────────────────────
+div = "=" * 60
+print(div)
+print("PROJECT SESSION ANALYSIS")
+print(f"  {project_path}")
+print(div)
+print(f"  Sessions found : {len(sessions)}")
+print(f"  Total turns    : {total_turns:,}")
+print(f"  User prompts   : {total_prompts:,}")
+print(f"  File changes   : {sum(file_freq.values()):,}")
+if total_in > 0:
+    print(f"  Tokens (Claude): {total_in:,} in / {total_out:,} out")
+
+if file_freq:
+    top = sorted(file_freq.items(), key=lambda x: -x[1])[:10]
+    mx  = top[0][1]
+    print("\nMost Changed Files")
+    for fp, cnt in top:
+        bar = "#" * min(round(cnt/mx*20), 20)
+        rel = fp[len(project_path)+1:] if fp.startswith(project_path) else fp
+        print(f"  {bar:<20} {cnt}x  {rel}")
+
+if prompt_file_map:
+    print("\nPrompt -> File Change Mapping (last 10)")
+    for prompt, fp, op in prompt_file_map[-10:]:
+        icon = "+" if op in ("Write","write") else "~"
+        rel  = fp[len(project_path)+1:] if fp.startswith(project_path) else fp
+        dots = "..." if len(prompt) == 80 else ""
+        print(f"  [{icon}] {rel}")
+        print(f"      <- \"{prompt}{dots}\"")
+
+print(f"\n{'-'*60}")
+PYEOF
 ```
 
-If the CLI analyzer is not built yet, build it first:
+### 2. Interpret the results
 
-```bash
-cd [project_root] && pnpm --filter @vibecoding/core run build && pnpm --filter @vibecoding/cli-analyzer run build
-```
+Based on the analysis output, provide insights:
 
-2. **Present the results** to the user with interpretation:
-   - Highlight the most frequently changed files — these are likely the core of the project
-   - Show which user prompts led to the most code changes
-   - If token usage is high relative to changes made, note this as a potential prompt efficiency issue
+**File change frequency:**
+- Most-changed files → core modules or areas with unstable design
+- Even distribution → systematic development; concentrated changes → possible refactoring need
 
-3. **Provide actionable insights:**
-   - "Your most active file was X — consider reviewing it for accumulated complexity"
-   - "Prompt Y resulted in Z file changes — this was an efficient/inefficient prompt"
-   - "Total token cost: ~$X (estimated based on model pricing)"
+**Prompt efficiency:**
+- Short prompt → many file changes: efficient
+- Long prompt → few changes: room to improve prompt clarity
 
-## Limitations
-- Level 1 analysis is static only (no AI model calls needed)
-- Currently supports Claude Code and Codex CLI session files
-- Token cost estimates are approximate
+**Token usage:**
+- Input tokens >> output tokens: long context maintained (large files repeatedly referenced)
+- Balanced ratio: efficient session
+
+### 3. Provide actionable feedback
+
+Summarize findings and suggest concrete next steps for the user.

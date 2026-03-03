@@ -1,0 +1,27 @@
+{
+  "name": "vibecoding-edu",
+  "owner": {
+    "name": "wgsim",
+    "email": ""
+  },
+  "metadata": {
+    "description": "VibeCoding Edu — X-Ray code analysis, Debugging Dojo, and AI session history review",
+    "version": "0.1.0"
+  },
+  "plugins": [
+    {
+      "name": "vibecoding-edu",
+      "source": "./",
+      "description": "Understand AI-generated code through X-Ray analysis, prompt evaluation, and debugging practice.",
+      "category": "education",
+      "tags": [
+        "education",
+        "debugging",
+        "code-literacy",
+        "vibe-coding",
+        "session-analysis"
+      ]
+    }
+  ],
+  "version": "0.1.0"
+}

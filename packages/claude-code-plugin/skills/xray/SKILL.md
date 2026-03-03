@@ -1,42 +1,78 @@
 ---
 name: xray
-description: Explain AI-generated code line-by-line from a traditional programming perspective
+description: Explain AI-generated code line-by-line from a traditional programming perspective. Adapts depth to user level (beginner/intermediate/expert).
+tools: AskUserQuestion
 ---
 
 # X-Ray Viewer — Code Literacy Analysis
 
-You are an expert programming educator. Your task is to perform an "X-Ray" analysis of code, explaining **why** each significant part exists from a traditional software engineering perspective.
+> **Language**: Detect the user's language from their input and respond in that language throughout. Default to English if unclear.
+
+Dissect AI-generated code from a traditional software engineering perspective.
 
 ## Instructions
 
-1. **Identify the target code:**
-   - If the user specifies a file or code block, analyze that.
-   - Otherwise, look at the most recently written or edited code in this conversation.
+### 1. Ask for user level (if not specified)
 
-2. **For each significant code section, explain:**
-   - **What it does** in plain language (1 sentence)
-   - **Why it's needed** from an engineering perspective (what would break without it?)
-   - **The underlying concept** (e.g., "This is the Observer pattern", "This is defensive null checking", "This handles asynchronous execution")
+If the user has not stated their level, use the AskUserQuestion tool:
 
-3. **Format the output as:**
+- question: "Choose your level so I can adjust the explanation depth"
+- header: "Level"
+- options:
+  - label: "Beginner", description: "New to programming — analogy-based explanations, minimal jargon"
+  - label: "Intermediate", description: "Can read code but unfamiliar with patterns — principles + pattern names"
+  - label: "Expert", description: "Developer reviewing AI-generated code — architecture, risks, trade-offs"
 
+### 2. Identify the target code
+
+- If the user specifies a file or code block, analyze that.
+- Otherwise, use the most recently written or edited code in this conversation.
+
+### 3. Analyze by level
+
+For each significant code section, explain according to the selected level:
+
+---
+
+**Beginner** — analogy-first, minimal terminology
 ```
-📍 [file:line_range] — Brief description
-   What: ...
-   Why:  ...
-   Concept: ...
+📍 [file:line_range]
+   In one sentence: [everyday analogy — LEGO, cooking, mailbox, etc.]
+   What breaks without it: [concrete consequence]
+   One concept to remember: [single takeaway]
 ```
 
-4. **Adjust depth based on code complexity:**
-   - Simple utility functions → brief explanation
-   - Complex logic (async flows, state management, error handling) → detailed breakdown
-   - Security-relevant code → highlight the vulnerability it prevents
+**Intermediate** — principles + pattern names
+```
+📍 [file:line_range] — brief description
+   What:    [what it does]
+   Why:     [why it's needed — what breaks without it]
+   Concept: [Observer pattern / null guard / async execution / etc.]
+```
 
-5. **At the end, provide:**
-   - A "Dependency Map" showing how the analyzed code connects to other parts of the project
-   - A "Learning Path" suggesting 2-3 traditional programming concepts the user should study to fully understand this code
+**Expert** — architecture, risks, trade-offs
+```
+📍 [file:line_range] — brief description
+   Design decision: [why this structure was chosen]
+   Risk:            [potential vulnerability, performance issue, scalability limit]
+   Alternative:     [other approach and its trade-offs]
+```
+
+---
+
+### 4. Closing summary
+
+End with:
+
+**Dependency map** — how the analyzed code connects to the rest of the project
+
+**Learning path** (by level):
+- Beginner: 1–2 things to learn next to fully understand this code
+- Intermediate: 2–3 traditional CS concepts that underpin this code
+- Expert: patterns, papers, or books relevant to architectural improvement
 
 ## What NOT to do
-- Do not rewrite or refactor the code
-- Do not suggest improvements unless the user asks
-- Focus on **understanding**, not optimization
+
+- Do not rewrite or refactor the code unless asked
+- Do not suggest improvements outside of the Expert "Risk" section
+- Focus on **understanding**, not evaluation

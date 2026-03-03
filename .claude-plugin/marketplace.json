@@ -1,0 +1,21 @@
+{
+  "name": "vibecoding-edu",
+  "owner": {
+    "name": "wgsim",
+    "email": ""
+  },
+  "metadata": {
+    "description": "VibeCoding Edu — Claude Code skills for code literacy, debugging practice, and AI session analysis",
+    "version": "0.1.0"
+  },
+  "plugins": [
+    {
+      "name": "vibecoding-edu",
+      "source": "./plugins/vibecoding-edu",
+      "description": "Understand AI-generated code through X-Ray analysis, debugging practice, and session history review.",
+      "category": "education",
+      "tags": ["education", "debugging", "code-literacy", "vibe-coding", "session-analysis"]
+    }
+  ],
+  "version": "0.1.0"
+}
