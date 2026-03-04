@@ -2,56 +2,9 @@ import * as vscode from "vscode";
 import { relative, join } from "node:path";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
+import type { AnalysisJsonResult } from "@vibecoding/core";
 
 const execFileAsync = promisify(execFile);
-
-interface TokenUsageJson {
-  inputTokens: number;
-  outputTokens: number;
-}
-
-interface AnalysisPromptMappingJson {
-  filePath: string;
-  changeType: "create" | "edit" | "delete";
-  promptText: string;
-  turnIndex: number;
-}
-
-interface AnalysisSessionJson {
-  sessionId: string;
-  tool: "claude-code" | "codex-cli";
-  totalTurns: number;
-  promptCount: number;
-  fileChangeCount: number;
-  tokens: TokenUsageJson;
-  topFiles: Array<{ filePath: string; changeCount: number }>;
-  promptMappings: AnalysisPromptMappingJson[];
-}
-
-interface FailedSessionJson {
-  tool: "claude-code" | "codex-cli";
-  filePath: string;
-  error: string;
-}
-
-interface AnalysisResultJson {
-  projectPath: string;
-  sessionsFound: number;
-  activeSessions: number;
-  skippedSessions: number;
-  failedSessions: number;
-  totals: {
-    turns: number;
-    prompts: number;
-    fileChanges: number;
-    inputTokens: number;
-    outputTokens: number;
-    claudeSessions: number;
-  };
-  topFiles: Array<{ filePath: string; changeCount: number }>;
-  sessions: AnalysisSessionJson[];
-  errors: FailedSessionJson[];
-}
 
 let extensionPath: string;
 
@@ -232,7 +185,7 @@ async function analyzeCommand(): Promise<void> {
   );
 }
 
-function parseAnalysisJson(raw: string): AnalysisResultJson {
+function parseAnalysisJson(raw: string): AnalysisJsonResult {
   const parsed = JSON.parse(raw) as unknown;
   if (!isAnalysisResultJson(parsed)) {
     throw new Error("Invalid analysis JSON payload");
@@ -240,11 +193,20 @@ function parseAnalysisJson(raw: string): AnalysisResultJson {
   return parsed;
 }
 
-function isAnalysisResultJson(value: unknown): value is AnalysisResultJson {
+function isAnalysisResultJson(value: unknown): value is AnalysisJsonResult {
   if (!isRecord(value)) return false;
   if (typeof value.projectPath !== "string") return false;
   if (typeof value.sessionsFound !== "number") return false;
   if (!isRecord(value.totals)) return false;
+  const t = value.totals;
+  if (
+    typeof t.turns !== "number" ||
+    typeof t.prompts !== "number" ||
+    typeof t.fileChanges !== "number" ||
+    typeof t.inputTokens !== "number" ||
+    typeof t.outputTokens !== "number" ||
+    typeof t.claudeSessions !== "number"
+  ) return false;
   if (!Array.isArray(value.topFiles)) return false;
   if (!Array.isArray(value.sessions)) return false;
   if (!Array.isArray(value.errors)) return false;
@@ -255,7 +217,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
-function showAnalysisPanel(data: AnalysisResultJson): void {
+function showAnalysisPanel(data: AnalysisJsonResult): void {
   const panel = vscode.window.createWebviewPanel(
     "vibecoding.analysis",
     "VibeCoding Analysis",
@@ -293,12 +255,18 @@ function showRawAnalysisPanel(rawOutput: string, projectPath: string): void {
 </html>`;
 }
 
-function buildAnalysisHtml(data: AnalysisResultJson): string {
+function toDisplayPath(projectPath: string, filePath: string): string {
+  return filePath.startsWith(projectPath)
+    ? filePath.slice(projectPath.length + 1)
+    : filePath;
+}
+
+function buildAnalysisHtml(data: AnalysisJsonResult): string {
   const maxCount = data.topFiles[0]?.changeCount ?? 1;
   const topFileRows = data.topFiles.map((entry) => {
     const pct = Math.round((entry.changeCount / maxCount) * 100);
     return `<tr>
-      <td class="file">${escHtml(entry.filePath)}</td>
+      <td class="file">${escHtml(toDisplayPath(data.projectPath, entry.filePath))}</td>
       <td class="bar-cell"><div class="bar" style="width:${pct}%"></div></td>
       <td class="count">${entry.changeCount}x</td>
     </tr>`;

@@ -2,45 +2,13 @@
 
 import { resolve, relative } from "node:path";
 import { findAllSessions, parseSession, analyzeSession } from "@vibecoding/core";
-import type { AiTool, StaticAnalysisReport, TokenUsage, FileChange } from "@vibecoding/core";
+import type {
+  StaticAnalysisReport,
+  AnalysisFailedSession,
+  AnalysisJsonResult,
+} from "@vibecoding/core";
 
 type OutputMode = "text" | "json";
-
-interface FailedSession {
-  tool: AiTool;
-  filePath: string;
-  error: string;
-}
-
-interface SessionSummaryJson {
-  sessionId: string;
-  tool: AiTool;
-  totalTurns: number;
-  promptCount: number;
-  fileChangeCount: number;
-  tokens: TokenUsage;
-  topFiles: Array<{ filePath: string; changeCount: number }>;
-  promptMappings: Array<Pick<FileChange, "filePath" | "changeType" | "promptText" | "turnIndex">>;
-}
-
-interface AnalysisJsonResult {
-  projectPath: string;
-  sessionsFound: number;
-  activeSessions: number;
-  skippedSessions: number;
-  failedSessions: number;
-  totals: {
-    turns: number;
-    prompts: number;
-    fileChanges: number;
-    inputTokens: number;
-    outputTokens: number;
-    claudeSessions: number;
-  };
-  topFiles: Array<{ filePath: string; changeCount: number }>;
-  sessions: SessionSummaryJson[];
-  errors: FailedSession[];
-}
 
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
@@ -174,7 +142,7 @@ async function runAnalysis(projectPath: string, outputMode: OutputMode): Promise
             tool,
             filePath,
             error: errorMessage,
-          } satisfies FailedSession,
+          } satisfies AnalysisFailedSession,
         };
       }
     }),
@@ -185,7 +153,7 @@ async function runAnalysis(projectPath: string, outputMode: OutputMode): Promise
     .map((result) => result.report);
 
   const failedSessions = parsedResults
-    .filter((result): result is { ok: false; failed: FailedSession } => !result.ok)
+    .filter((result): result is { ok: false; failed: AnalysisFailedSession } => !result.ok)
     .map((result) => result.failed);
 
   const active = reports.filter((r) => r.totalTurns > 0);
@@ -218,7 +186,7 @@ function buildAnalysisJson(
   sessionsFound: number,
   activeReports: StaticAnalysisReport[],
   skippedSessions: number,
-  failedSessions: FailedSession[],
+  failedSessions: AnalysisFailedSession[],
 ): AnalysisJsonResult {
   const totals = {
     turns: activeReports.reduce((s, r) => s + r.totalTurns, 0),
@@ -350,7 +318,7 @@ function printReport(report: StaticAnalysisReport): void {
   console.log(`\n${divider}\n`);
 }
 
-function printFailedSessions(failedSessions: FailedSession[], projectPath: string): void {
+function printFailedSessions(failedSessions: AnalysisFailedSession[], projectPath: string): void {
   const divider = "!".repeat(60);
   console.log(divider);
   console.log("Failed session files (skipped)");
