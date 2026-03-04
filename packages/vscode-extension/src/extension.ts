@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 import { relative, join } from "node:path";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
+import { escHtml } from "@vibecoding/core";
 
 const execFileAsync = promisify(execFile);
 
@@ -253,11 +254,3 @@ ${rows ? `<h2>Most Changed Files</h2>
 </html>`;
 }
 
-function escHtml(s: string): string {
-  return s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}

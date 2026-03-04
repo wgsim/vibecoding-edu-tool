@@ -196,3 +196,77 @@ main().catch((err) => {
   console.error("Error:", err);
   process.exit(1);
 });
+
+// ─── Exported pure functions (for testing) ────────────────────────────────────
+
+export interface AnalyzeArgs {
+  targetPath: string;
+  format: "text" | "json";
+}
+
+/**
+ * Parse analyze-command arguments.
+ * Accepts: [path?] [--json]
+ */
+export function parseAnalyzeArgs(args: string[]): AnalyzeArgs {
+  let targetPath = resolve(".");
+  let format: "text" | "json" = "text";
+
+  for (const arg of args) {
+    if (arg === "--json") {
+      format = "json";
+    } else if (arg.startsWith("--")) {
+      throw new Error(`Unknown option: ${arg}`);
+    } else {
+      targetPath = resolve(arg);
+    }
+  }
+
+  return { targetPath, format };
+}
+
+export interface AnalysisJson {
+  totalSessions: number;
+  totalTurns: number;
+  totalPrompts: number;
+  totalChanges: number;
+  totalInputTokens: number;
+  totalOutputTokens: number;
+  claudeSessions: number;
+  topFiles: Array<{ filePath: string; changeCount: number }>;
+  sessions: StaticAnalysisReport[];
+}
+
+/**
+ * Build a JSON-serializable analysis summary from multiple reports.
+ */
+export function buildAnalysisJson(reports: StaticAnalysisReport[]): AnalysisJson {
+  const totalTurns = reports.reduce((s, r) => s + r.totalTurns, 0);
+  const totalPrompts = reports.reduce((s, r) => s + r.promptCount, 0);
+  const totalChanges = reports.reduce((s, r) => s + r.fileChanges.length, 0);
+  const totalInputTokens = reports.reduce((s, r) => s + r.totalTokens.inputTokens, 0);
+  const totalOutputTokens = reports.reduce((s, r) => s + r.totalTokens.outputTokens, 0);
+  const claudeSessions = reports.filter((r) => r.tool !== "codex-cli").length;
+
+  const freq = new Map<string, number>();
+  for (const r of reports) {
+    for (const { filePath, changeCount } of r.changeFrequency) {
+      freq.set(filePath, (freq.get(filePath) ?? 0) + changeCount);
+    }
+  }
+  const topFiles = [...freq.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .map(([filePath, changeCount]) => ({ filePath, changeCount }));
+
+  return {
+    totalSessions: reports.length,
+    totalTurns,
+    totalPrompts,
+    totalChanges,
+    totalInputTokens,
+    totalOutputTokens,
+    claudeSessions,
+    topFiles,
+    sessions: reports,
+  };
+}
