@@ -10,7 +10,10 @@
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
-    "start": "node dist/cli.js"
+    "start": "node dist/cli.js",
+    "typecheck": "tsc --noEmit",
+    "lint": "pnpm run typecheck",
+    "test": "exit 0"
   },
   "dependencies": {
     "@vibecoding/core": "workspace:*"

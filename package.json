@@ -7,6 +7,12 @@
   "engines": {
     "node": ">=20.0.0"
   },
+  "scripts": {
+    "build": "pnpm --dir packages/core build && pnpm --dir packages/cli-analyzer build && pnpm --dir packages/vscode-extension build",
+    "typecheck": "pnpm --dir packages/core typecheck && pnpm --dir packages/cli-analyzer typecheck && pnpm --dir packages/vscode-extension typecheck",
+    "lint": "pnpm --dir packages/core lint && pnpm --dir packages/cli-analyzer lint && pnpm --dir packages/vscode-extension lint",
+    "test": "pnpm --dir packages/core test && pnpm --dir packages/cli-analyzer test && pnpm --dir packages/vscode-extension test"
+  },
   "devDependencies": {
     "@types/node": "^25.3.2",
     "@vscode/vsce": "^3.7.1",

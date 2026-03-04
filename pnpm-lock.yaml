@@ -32,6 +32,10 @@ importers:
   packages/core: {}
 
   packages/vscode-extension:
+    dependencies:
+      '@vibecoding/core':
+        specifier: workspace:*
+        version: link:../core
     devDependencies:
       '@types/vscode':
         specifier: ^1.85.0

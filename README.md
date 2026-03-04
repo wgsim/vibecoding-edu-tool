@@ -66,7 +66,7 @@ bash packages/claude-code-plugin/install.sh
 
 ### 💻 Track B: VSCode Extension (UI-based)
 Recommended if you want visual analysis results while looking directly at the code.
-1. Run `pnpm install && pnpm --filter vscode-extension build && pnpm --filter vscode-extension package`
+1. Run `pnpm install && pnpm --filter ./packages/vscode-extension build && pnpm --filter ./packages/vscode-extension package`
 2. Install the generated `.vsix` file in VSCode
 3. Execute `Cmd + Shift + P` ➔ `VibeCoding: Start Analysis`
 
@@ -74,7 +74,7 @@ Recommended if you want visual analysis results while looking directly at the co
 Use this when you want to quickly analyze AI session history in CI/CD pipelines or local environments.
 ```bash
 pnpm install
-pnpm --filter cli-analyzer build
+pnpm --filter ./packages/cli-analyzer build
 
 # Analyze AI sessions in the current project
 node packages/cli-analyzer/dist/cli.js analyze .

@@ -61,6 +61,45 @@ export interface FileChange {
   turnIndex: number;
 }
 
+/** JSON output contract for the `analyze --json` command */
+export interface AnalysisFailedSession {
+  tool: AiTool;
+  filePath: string;
+  error: string;
+}
+
+export interface AnalysisSessionSummary {
+  sessionId: string;
+  tool: AiTool;
+  totalTurns: number;
+  promptCount: number;
+  fileChangeCount: number;
+  tokens: TokenUsage;
+  topFiles: Array<{ filePath: string; changeCount: number }>;
+  promptMappings: Array<Pick<FileChange, "filePath" | "changeType" | "promptText" | "turnIndex">>;
+}
+
+export interface AnalysisTotals {
+  turns: number;
+  prompts: number;
+  fileChanges: number;
+  inputTokens: number;
+  outputTokens: number;
+  claudeSessions: number;
+}
+
+export interface AnalysisJsonResult {
+  projectPath: string;
+  sessionsFound: number;
+  activeSessions: number;
+  skippedSessions: number;
+  failedSessions: number;
+  totals: AnalysisTotals;
+  topFiles: Array<{ filePath: string; changeCount: number }>;
+  sessions: AnalysisSessionSummary[];
+  errors: AnalysisFailedSession[];
+}
+
 /** Level 1 analysis result (no AI model required) */
 export interface StaticAnalysisReport {
   /** Source session metadata */

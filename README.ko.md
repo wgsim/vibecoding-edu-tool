@@ -66,7 +66,7 @@ bash packages/claude-code-plugin/install.sh
 
 ### 💻 Track B: VSCode Extension (UI 기반)
 코드를 직접 보면서 시각적인 분석 결과를 얻고 싶다면 추천합니다.
-1. `pnpm install && pnpm --filter vscode-extension build && pnpm --filter vscode-extension package` 실행
+1. `pnpm install && pnpm --filter ./packages/vscode-extension build && pnpm --filter ./packages/vscode-extension package` 실행
 2. 생성된 `.vsix` 파일을 VSCode에 설치
 3. `Cmd + Shift + P` ➔ `VibeCoding: Start Analysis` 실행
 
@@ -74,7 +74,7 @@ bash packages/claude-code-plugin/install.sh
 CI/CD 파이프라인이나 로컬 환경에서 AI 세션 기록만 빠르게 분석하고 싶을 때 사용합니다.
 ```bash
 pnpm install
-pnpm --filter cli-analyzer build
+pnpm --filter ./packages/cli-analyzer build
 
 # 현재 프로젝트의 AI 세션 분석
 node packages/cli-analyzer/dist/cli.js analyze .
